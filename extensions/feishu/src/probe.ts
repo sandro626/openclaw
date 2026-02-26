@@ -27,12 +27,16 @@ export async function probeFeishu(creds?: FeishuClientCredentials): Promise<Feis
       };
     }
 
-    const bot = response.bot || response.data?.bot;
+    const bot = response.bot || response.data?.bot || response;
+    console.error(`[Feishu Debug] probeFeishu: response.bot=${JSON.stringify(response.bot)}, response.data=${JSON.stringify(response.data)}, final bot=${JSON.stringify(bot)}`);
+    const botName = bot?.bot_name || bot?.app_name;
+    console.error(`[Feishu Debug] probeFeishu: extracted botName=${botName}`);
     return {
       ok: true,
       appId: creds.appId,
-      botName: bot?.bot_name,
+      botName,
       botOpenId: bot?.open_id,
+      botUserId: bot?.user_id,
     };
   } catch (err) {
     return {

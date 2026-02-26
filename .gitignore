@@ -120,3 +120,7 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+
+# Windows Zone.Identifier files
+*:Zone.Identifier
+**/*:Zone.Identifier

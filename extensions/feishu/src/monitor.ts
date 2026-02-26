@@ -23,61 +23,55 @@ export type MonitorFeishuOpts = {
 const wsClients = new Map<string, Lark.WSClient>();
 const httpServers = new Map<string, http.Server>();
 const botOpenIds = new Map<string, string>();
+const botUserIds = new Map<string, string>();
+// Bot names for fallback name-based matching
+const botNames = new Map<string, string>();
+// Cached mention open_ids learned from seeing the bot mentioned (key: accountId)
+const botMentionOpenIds = new Map<string, string>();
+
+/**
+ * Export bot info maps for use by other modules (e.g., bot-to-bot communication)
+ */
+export function getAllBotOpenIds(): Map<string, string> {
+  return new Map(botOpenIds);
+}
+
+export function getAllBotNames(): Map<string, string> {
+  return new Map(botNames);
+}
 const FEISHU_WEBHOOK_MAX_BODY_BYTES = 1024 * 1024;
 const FEISHU_WEBHOOK_BODY_TIMEOUT_MS = 30_000;
-const FEISHU_WEBHOOK_RATE_LIMIT_WINDOW_MS = 60_000;
-const FEISHU_WEBHOOK_RATE_LIMIT_MAX_REQUESTS = 120;
-const FEISHU_WEBHOOK_COUNTER_LOG_EVERY = 25;
-const feishuWebhookRateLimits = new Map<string, { count: number; windowStartMs: number }>();
-const feishuWebhookStatusCounters = new Map<string, number>();
 
-function isJsonContentType(value: string | string[] | undefined): boolean {
-  const first = Array.isArray(value) ? value[0] : value;
-  if (!first) {
-    return false;
-  }
-  const mediaType = first.split(";", 1)[0]?.trim().toLowerCase();
-  return mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"));
-}
-
-function isWebhookRateLimited(key: string, nowMs: number): boolean {
-  const state = feishuWebhookRateLimits.get(key);
-  if (!state || nowMs - state.windowStartMs >= FEISHU_WEBHOOK_RATE_LIMIT_WINDOW_MS) {
-    feishuWebhookRateLimits.set(key, { count: 1, windowStartMs: nowMs });
-    return false;
-  }
-
-  state.count += 1;
-  if (state.count > FEISHU_WEBHOOK_RATE_LIMIT_MAX_REQUESTS) {
-    return true;
-  }
-  return false;
-}
-
-function recordWebhookStatus(
-  runtime: RuntimeEnv | undefined,
-  accountId: string,
-  path: string,
-  statusCode: number,
-): void {
-  if (![400, 401, 408, 413, 415, 429].includes(statusCode)) {
-    return;
-  }
-  const key = `${accountId}:${path}:${statusCode}`;
-  const next = (feishuWebhookStatusCounters.get(key) ?? 0) + 1;
-  feishuWebhookStatusCounters.set(key, next);
-  if (next === 1 || next % FEISHU_WEBHOOK_COUNTER_LOG_EVERY === 0) {
-    const log = runtime?.log ?? console.log;
-    log(`feishu[${accountId}]: webhook anomaly path=${path} status=${statusCode} count=${next}`);
-  }
-}
-
-async function fetchBotOpenId(account: ResolvedFeishuAccount): Promise<string | undefined> {
+async function fetchBotInfo(account: ResolvedFeishuAccount): Promise<{ openId?: string; userId?: string; name?: string }> {
   try {
     const result = await probeFeishu(account);
-    return result.ok ? result.botOpenId : undefined;
+    return {
+      openId: result.ok ? result.botOpenId : undefined,
+      userId: result.ok ? result.botUserId : undefined,
+      name: result.ok ? result.botName : undefined,
+    };
   } catch {
-    return undefined;
+    return {};
+  }
+}
+
+// Get the effective mention open_id for a bot (cached or from API)
+function getEffectiveMentionOpenId(accountId: string): string | undefined {
+  // First check if we've learned the mention open_id from previous mentions
+  const cachedMentionId = botMentionOpenIds.get(accountId);
+  if (cachedMentionId) {
+    return cachedMentionId;
+  }
+  // Fall back to the API open_id
+  return botOpenIds.get(accountId);
+}
+
+// Learn and cache the mention open_id when we see a mention with matching bot name
+function learnMentionOpenId(accountId: string, botName: string, mentionOpenId: string): void {
+  const knownBotName = botNames.get(accountId);
+  if (knownBotName && mentionOpenId && !botMentionOpenIds.has(accountId)) {
+    console.error(`[Feishu Debug] Learned mention open_id for ${accountId}: ${mentionOpenId} (bot name: ${botName})`);
+    botMentionOpenIds.set(accountId, mentionOpenId);
   }
 }
 
@@ -104,13 +98,28 @@ function registerEventHandlers(
     "im.message.receive_v1": async (data) => {
       try {
         const event = data as unknown as FeishuMessageEvent;
+        // Get effective mention open_id (cached or from API)
+        const effectiveMentionOpenId = getEffectiveMentionOpenId(accountId);
+        const botName = botNames.get(accountId);
+
+        // Debug: log bot info at message handling time
+        console.error(`[Feishu Debug] Message handler for ${accountId}: effectiveMentionOpenId=${effectiveMentionOpenId}, botName from map=${botName}, all botNames keys=${JSON.stringify([...botNames.keys()])}`);
+
         const promise = handleFeishuMessage({
           cfg,
           event,
-          botOpenId: botOpenIds.get(accountId),
+          botOpenId: effectiveMentionOpenId,
+          botUserId: botUserIds.get(accountId),
+          botName,
           runtime,
           chatHistories,
           accountId,
+          onLearnMentionOpenId: (learnedOpenId: string) => {
+            if (learnedOpenId && !botMentionOpenIds.has(accountId)) {
+              console.error(`[Feishu Debug] Learned mention open_id for ${accountId}: ${learnedOpenId}`);
+              botMentionOpenIds.set(accountId, learnedOpenId);
+            }
+          },
         });
         if (fireAndForget) {
           promise.catch((err) => {
@@ -160,15 +169,20 @@ async function monitorSingleAccount(params: MonitorAccountParams): Promise<void>
   const { accountId } = account;
   const log = runtime?.log ?? console.log;
 
-  // Fetch bot open_id
-  const botOpenId = await fetchBotOpenId(account);
-  botOpenIds.set(accountId, botOpenId ?? "");
-  log(`feishu[${accountId}]: bot open_id resolved: ${botOpenId ?? "unknown"}`);
+  // Fetch bot info (open_id, user_id, name)
+  const botInfo = await fetchBotInfo(account);
+  botOpenIds.set(accountId, botInfo.openId ?? "");
+  log(`feishu[${accountId}]: bot open_id resolved: ${botInfo.openId ?? "unknown"}`);
+
+  botUserIds.set(accountId, botInfo.userId ?? "");
+  log(`feishu[${accountId}]: bot user_id resolved: ${botInfo.userId ?? "unknown"}`);
+
+  if (botInfo.name) {
+    botNames.set(accountId, botInfo.name);
+    log(`feishu[${accountId}]: bot name resolved: ${botInfo.name}`);
+  }
 
   const connectionMode = account.config.connectionMode ?? "websocket";
-  if (connectionMode === "webhook" && !account.verificationToken?.trim()) {
-    throw new Error(`Feishu account "${accountId}" webhook mode requires verificationToken`);
-  }
   const eventDispatcher = createEventDispatcher(account);
   const chatHistories = new Map<string, HistoryEntry[]>();
 
@@ -211,6 +225,9 @@ async function monitorWebSocket({
     const cleanup = () => {
       wsClients.delete(accountId);
       botOpenIds.delete(accountId);
+      botUserIds.delete(accountId);
+      botNames.delete(accountId);
+      botMentionOpenIds.delete(accountId);
     };
 
     const handleAbort = () => {
@@ -249,30 +266,12 @@ async function monitorWebhook({
 
   const port = account.config.webhookPort ?? 3000;
   const path = account.config.webhookPath ?? "/feishu/events";
-  const host = account.config.webhookHost ?? "127.0.0.1";
 
-  log(`feishu[${accountId}]: starting Webhook server on ${host}:${port}, path ${path}...`);
+  log(`feishu[${accountId}]: starting Webhook server on port ${port}, path ${path}...`);
 
   const server = http.createServer();
   const webhookHandler = Lark.adaptDefault(path, eventDispatcher, { autoChallenge: true });
   server.on("request", (req, res) => {
-    res.on("finish", () => {
-      recordWebhookStatus(runtime, accountId, path, res.statusCode);
-    });
-
-    const rateLimitKey = `${accountId}:${path}:${req.socket.remoteAddress ?? "unknown"}`;
-    if (isWebhookRateLimited(rateLimitKey, Date.now())) {
-      res.statusCode = 429;
-      res.end("Too Many Requests");
-      return;
-    }
-
-    if (req.method === "POST" && !isJsonContentType(req.headers["content-type"])) {
-      res.statusCode = 415;
-      res.end("Unsupported Media Type");
-      return;
-    }
-
     const guard = installRequestBodyLimitGuard(req, res, {
       maxBytes: FEISHU_WEBHOOK_MAX_BODY_BYTES,
       timeoutMs: FEISHU_WEBHOOK_BODY_TIMEOUT_MS,
@@ -298,6 +297,9 @@ async function monitorWebhook({
       server.close();
       httpServers.delete(accountId);
       botOpenIds.delete(accountId);
+      botUserIds.delete(accountId);
+      botNames.delete(accountId);
+      botMentionOpenIds.delete(accountId);
     };
 
     const handleAbort = () => {
@@ -314,8 +316,8 @@ async function monitorWebhook({
 
     abortSignal?.addEventListener("abort", handleAbort, { once: true });
 
-    server.listen(port, host, () => {
-      log(`feishu[${accountId}]: Webhook server listening on ${host}:${port}`);
+    server.listen(port, () => {
+      log(`feishu[${accountId}]: Webhook server listening on port ${port}`);
     });
 
     server.on("error", (err) => {
@@ -386,6 +388,9 @@ export function stopFeishuMonitor(accountId?: string): void {
       httpServers.delete(accountId);
     }
     botOpenIds.delete(accountId);
+    botUserIds.delete(accountId);
+    botNames.delete(accountId);
+    botMentionOpenIds.delete(accountId);
   } else {
     wsClients.clear();
     for (const server of httpServers.values()) {
@@ -393,5 +398,8 @@ export function stopFeishuMonitor(accountId?: string): void {
     }
     httpServers.clear();
     botOpenIds.clear();
+    botUserIds.clear();
+    botNames.clear();
+    botMentionOpenIds.clear();
   }
 }

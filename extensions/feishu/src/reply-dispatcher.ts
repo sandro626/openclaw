@@ -7,9 +7,11 @@ import {
   type RuntimeEnv,
 } from "openclaw/plugin-sdk";
 import { resolveFeishuAccount } from "./accounts.js";
+import { processBotMentions } from "./bot-forward.js";
 import { createFeishuClient } from "./client.js";
 import type { MentionTarget } from "./mention.js";
 import { buildMentionedCardContent } from "./mention.js";
+import { getAllBotOpenIds } from "./monitor.js";
 import { getFeishuRuntime } from "./runtime.js";
 import { sendMarkdownCardFeishu, sendMessageFeishu } from "./send.js";
 import { FeishuStreamingSession } from "./streaming-card.js";
@@ -81,6 +83,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
   let lastPartial = "";
   let partialUpdateQueue: Promise<void> = Promise.resolve();
   let streamingStartPromise: Promise<void> | null = null;
+  let lastDeliveredText = ""; // Track last delivered text for bot mention processing
 
   const startStreaming = () => {
     if (!streamingEnabled || streamingStartPromise || streaming) {
@@ -141,6 +144,9 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         if (!text.trim()) {
           return;
         }
+
+        // Save the delivered text for bot mention processing
+        lastDeliveredText = text;
 
         const useCard = renderMode === "card" || (renderMode === "auto" && shouldUseCard(text));
 
@@ -205,6 +211,29 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
       onIdle: async () => {
         await closeStreaming();
         typingCallbacks.onIdle?.();
+
+        // Process bot mentions: forward to other bots via subagent if needed
+        if (mentionTargets && mentionTargets.length > 0) {
+          try {
+            const botOpenIds = getAllBotOpenIds();
+            await processBotMentions({
+              cfg,
+              runtime: params.runtime,
+              text: lastDeliveredText || "",
+              mentionTargets,
+              currentAgentId: agentId,
+              currentAccountId: account.accountId,
+              chatId,
+              replyToMessageId,
+              botOpenIds,
+              log: (msg) => params.runtime.log?.(msg),
+            });
+          } catch (err) {
+            params.runtime.error?.(
+              `feishu[${account.accountId}] bot mention forward failed: ${String(err)}`,
+            );
+          }
+        }
       },
       onCleanup: () => {
         typingCallbacks.onCleanup?.();

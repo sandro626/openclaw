@@ -57,6 +57,7 @@ export type FeishuProbeResult = BaseProbeResult<string> & {
   appId?: string;
   botName?: string;
   botOpenId?: string;
+  botUserId?: string;
 };
 
 export type FeishuMediaInfo = {

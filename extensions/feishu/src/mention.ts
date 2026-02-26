@@ -1,13 +1,6 @@
 import type { FeishuMessageEvent } from "./bot.js";
 
 /**
- * Escape regex metacharacters so user-controlled mention fields are treated literally.
- */
-export function escapeRegExp(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
  * Mention target user info
  */
 export type MentionTarget = {
@@ -22,13 +15,17 @@ export type MentionTarget = {
 export function extractMentionTargets(
   event: FeishuMessageEvent,
   botOpenId?: string,
+  botUserId?: string,
 ): MentionTarget[] {
   const mentions = event.message.mentions ?? [];
 
   return mentions
     .filter((m) => {
-      // Exclude the bot itself
+      // Exclude the bot itself (check both open_id and user_id)
       if (botOpenId && m.id.open_id === botOpenId) {
+        return false;
+      }
+      if (botUserId && m.id.user_id === botUserId) {
         return false;
       }
       // Must have open_id
@@ -47,21 +44,26 @@ export function extractMentionTargets(
  * - Group: message mentions bot + at least one other user
  * - DM: message mentions any user (no need to mention bot)
  */
-export function isMentionForwardRequest(event: FeishuMessageEvent, botOpenId?: string): boolean {
+export function isMentionForwardRequest(event: FeishuMessageEvent, botOpenId?: string, botUserId?: string): boolean {
   const mentions = event.message.mentions ?? [];
   if (mentions.length === 0) {
     return false;
   }
 
   const isDirectMessage = event.message.chat_type === "p2p";
-  const hasOtherMention = mentions.some((m) => m.id.open_id !== botOpenId);
+  // Check both open_id and user_id when determining if bot is mentioned
+  type MentionItem = NonNullable<FeishuMessageEvent["message"]["mentions"]>[number];
+  const isBotMention = (m: MentionItem) => {
+    return (botOpenId && m.id.open_id === botOpenId) || (botUserId && m.id.user_id === botUserId);
+  };
+  const hasOtherMention = mentions.some((m) => !isBotMention(m));
 
   if (isDirectMessage) {
     // DM: trigger if any non-bot user is mentioned
     return hasOtherMention;
   } else {
     // Group: need to mention both bot and other users
-    const hasBotMention = mentions.some((m) => m.id.open_id === botOpenId);
+    const hasBotMention = mentions.some(isBotMention);
     return hasBotMention && hasOtherMention;
   }
 }
@@ -74,7 +76,7 @@ export function extractMessageBody(text: string, allMentionKeys: string[]): stri
 
   // Remove all @ placeholders
   for (const key of allMentionKeys) {
-    result = result.replace(new RegExp(escapeRegExp(key), "g"), "");
+    result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "");
   }
 
   return result.replace(/\s+/g, " ").trim();
