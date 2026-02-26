@@ -1639,8 +1639,8 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
           const robotCorpId = robotConfig.corpId || wecomConfig.corpId || "";
 
           if (robotPath && robotToken && robotAESKey) {
-            // 机器人使用相同的加密回调机制（通过 monitor.ts 处理，有解密逻辑）
-            const unregister = registerWeComWebhookTarget(robotPath, {
+            // 机器人使用专用的机器人注册函数
+            const unregister = registerWeComRobotWebhookTarget(robotPath, {
               account: {
                 accountId: robotId,
                 name: robotConfig.name,

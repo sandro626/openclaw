@@ -98,6 +98,14 @@ export async function handleWeComRobotWebhookRequest(
     return true;
   }
 
+  // 企微智能机器人的回调消息都是加密的（XML或JSON格式）
+  // 这些加密消息应该由monitor.ts处理，它会解密后路由到机器人处理器
+  // robot.ts只处理直接的、未加密的机器人API调用（如果有）
+  // 为了避免读取body导致monitor.ts无法读取，我们直接返回false
+  // 让monitor.ts处理所有加密回调
+  console.error("[WeCom Robot] Letting monitor.ts handle encrypted callback for path:", path);
+  return false;
+
   // 读取 JSON Body
   let body: WeComRobotMessage;
   try {
@@ -119,7 +127,26 @@ export async function handleWeComRobotWebhookRequest(
         try {
           const raw = Buffer.concat(chunks).toString("utf8");
           console.error("[WeCom Robot] Raw body:", raw.substring(0, 500));
-          resolve(JSON.parse(raw) as WeComRobotMessage);
+
+          // 检查是否是加密的XML格式（企微回调使用XML）
+          // 如果是XML，返回null让monitor.ts处理
+          if (raw.trim().startsWith("<")) {
+            console.error("[WeCom Robot] Detected XML format, falling back to monitor.ts");
+            resolve(null as any);
+            return;
+          }
+
+          const parsed = JSON.parse(raw);
+
+          // 检查是否是加密的JSON格式 {"encrypt":"..."}
+          // 这种格式需要由monitor.ts解密处理
+          if (parsed.encrypt && !parsed.msgtype) {
+            console.error("[WeCom Robot] Detected encrypted JSON format, falling back to monitor.ts");
+            resolve(null as any);
+            return;
+          }
+
+          resolve(parsed as WeComRobotMessage);
         } catch (err) {
           reject(err);
         }
@@ -129,9 +156,14 @@ export async function handleWeComRobotWebhookRequest(
     });
   } catch (err) {
     console.error("[WeCom Robot] Failed to parse body:", err);
-    res.statusCode = 400;
-    res.end("Invalid JSON");
-    return true;
+    // 返回false让请求传递给monitor.ts处理
+    return false;
+  }
+
+  // 如果body为null（XML格式），让monitor.ts处理
+  if (!body) {
+    console.error("[WeCom Robot] Body is null (XML format), falling back to monitor.ts");
+    return false;
   }
 
   console.error("[WeCom Robot] Received message:", JSON.stringify(body, null, 2));
