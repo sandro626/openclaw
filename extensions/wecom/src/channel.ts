@@ -5,6 +5,8 @@
  */
 
 import { z } from "zod";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import {
   buildChannelConfigSchema,
   DmPolicySchema,
@@ -647,30 +649,61 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
 
         for (const mediaUrl of mediaUrls) {
           try {
-            // 下载媒体文件
-            const mediaResponse = await fetch(mediaUrl);
-            if (!mediaResponse.ok) {
-              console.error(`[WeCom] Failed to fetch media: ${mediaUrl}`);
-              continue;
+            let mediaBuffer: Buffer;
+            let filename: string;
+            let contentType: string;
+
+            // 检查是否是本地文件路径
+            const isLocalFile = mediaUrl.startsWith("/") || mediaUrl.startsWith("file://");
+            const filePath = mediaUrl.startsWith("file://") ? mediaUrl.slice(7) : mediaUrl;
+
+            if (isLocalFile && existsSync(filePath)) {
+              // 从本地文件读取
+              console.error(`[WeCom] Reading local file: ${filePath}`);
+              mediaBuffer = await readFile(filePath);
+              filename = filePath.split("/").pop() || "media";
+
+              // 根据扩展名推断 MIME 类型
+              const ext = filename.includes(".") ? filename.split(".").pop()?.toLowerCase() : "";
+              const mimeTypes: Record<string, string> = {
+                jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
+                mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg",
+                mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
+                pdf: "application/pdf", txt: "text/plain",
+                doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              };
+              contentType = mimeTypes[ext || ""] || "application/octet-stream";
+            } else {
+              // 从 URL 下载
+              const mediaResponse = await fetch(mediaUrl);
+              if (!mediaResponse.ok) {
+                console.error(`[WeCom] Failed to fetch media: ${mediaUrl}`);
+                continue;
+              }
+
+              const contentLength = mediaResponse.headers.get("content-length");
+              if (contentLength && parseInt(contentLength, 10) > maxBytes) {
+                console.error(`[WeCom] Media file too large: ${mediaUrl}`);
+                continue;
+              }
+
+              mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
+              contentType = mediaResponse.headers.get("content-type") || "application/octet-stream";
+              try {
+                filename = new URL(mediaUrl).pathname.split("/").pop() || "media";
+              } catch {
+                filename = "media";
+              }
             }
 
-            const contentLength = mediaResponse.headers.get("content-length");
-            if (contentLength && parseInt(contentLength, 10) > maxBytes) {
-              console.error(`[WeCom] Media file too large: ${mediaUrl}`);
-              continue;
-            }
-
-            const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
+            // 检查文件大小
             if (mediaBuffer.length > maxBytes) {
               console.error(`[WeCom] Media file too large: ${mediaBuffer.length} bytes`);
               continue;
             }
 
             // 检测媒体类型
-            const contentType = mediaResponse.headers.get("content-type") || "application/octet-stream";
-            const urlPath = new URL(mediaUrl).pathname;
-            const filename = urlPath.split("/").pop() || "media";
-
             let mediaType: "image" | "voice" | "video" | "file" = "file";
             if (contentType.startsWith("image/")) {
               mediaType = "image";
@@ -680,40 +713,62 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               mediaType = "video";
             }
 
+            // 上传到 OSS (如果配置了)
+            let ossUrl: string | undefined;
+            if (isOSSConfigured()) {
+              const ossResult = await uploadBufferToOSS(mediaBuffer, filename, contentType);
+              if (ossResult) {
+                ossUrl = ossResult.url;
+                console.error(`[WeCom] Media uploaded to OSS: ${ossUrl}`);
+              }
+            }
+
             // 上传到企业微信
             const uploadResult = await uploadMedia(accessToken, mediaType, mediaBuffer, filename);
 
             // 发送消息
-          const sendParams = {
-            touser: to,
-            agentid: account.agentId,
-            media_id: uploadResult.mediaId,
-          };
+            const sendParams = {
+              touser: to,
+              agentid: account.agentId,
+              media_id: uploadResult.mediaId,
+            };
 
-          switch (mediaType) {
-            case "image":
-              const imgResult = await sendImageMessage(accessToken, sendParams);
-              lastMessageId = imgResult.messageId;
-              break;
-            case "voice":
-              const voiceResult = await sendVoiceMessage(accessToken, sendParams);
-              lastMessageId = voiceResult.messageId;
-              break;
-            case "video":
-              const videoResult = await sendVideoMessage(accessToken, {
-                ...sendParams,
-                title: filename,
+            switch (mediaType) {
+              case "image":
+                const imgResult = await sendImageMessage(accessToken, sendParams);
+                lastMessageId = imgResult.messageId;
+                break;
+              case "voice":
+                const voiceResult = await sendVoiceMessage(accessToken, sendParams);
+                lastMessageId = voiceResult.messageId;
+                break;
+              case "video":
+                const videoResult = await sendVideoMessage(accessToken, {
+                  ...sendParams,
+                  title: filename,
+                });
+                lastMessageId = videoResult.messageId;
+                break;
+              default:
+                const fileResult = await sendFileMessage(accessToken, sendParams);
+                lastMessageId = fileResult.messageId;
+            }
+
+            // 如果有 OSS URL，发送下载链接
+            if (ossUrl && mediaType === "file") {
+              const linkText = `📎 文件下载链接: ${ossUrl}`;
+              await sendMessage(accessToken, {
+                touser: targetUser,
+                msgtype: "text",
+                agentid: account.agentId,
+                text: { content: linkText },
+                safe: 0,
               });
-              lastMessageId = videoResult.messageId;
-              break;
-            default:
-              const fileResult = await sendFileMessage(accessToken, sendParams);
-              lastMessageId = fileResult.messageId;
+            }
+          } catch (err) {
+            console.error(`[WeCom] Error sending media ${mediaUrl}:`, err);
           }
-        } catch (err) {
-          console.error(`[WeCom] Error sending media ${mediaUrl}:`, err);
         }
-      }
 
       // 处理文本
       const text = payload.text ?? "";
@@ -1556,9 +1611,9 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
 
       ctx.log?.info(`[${account.accountId}] starting WeCom provider`);
 
-      // 初始化 OSS 配置
-      const ossConfig = account.config.oss;
-      if (ossConfig?.enabled && ossConfig.accessKeyId && ossConfig.accessKeySecret && ossConfig.bucket && ossConfig.region) {
+      // 初始化 OSS 配置 - 优先使用账户级配置，回退到渠道级配置
+      const ossConfig = account.config.oss ?? wecomConfig.oss;
+      if (ossConfig?.enabled !== false && ossConfig?.accessKeyId && ossConfig?.accessKeySecret && ossConfig?.bucket && ossConfig?.region) {
         setOSSConfig({
           accessKeyId: ossConfig.accessKeyId,
           accessKeySecret: ossConfig.accessKeySecret,
@@ -1568,9 +1623,10 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
           publicUrlPrefix: ossConfig.publicUrlPrefix,
           uploadPath: ossConfig.uploadPath,
         });
-        ctx.log?.info(`[${account.accountId}] OSS storage enabled: bucket=${ossConfig.bucket}`);
+        ctx.log?.info(`[${account.accountId}] OSS storage enabled: bucket=${ossConfig.bucket}, region=${ossConfig.region}`);
       } else {
         setOSSConfig(null);
+        ctx.log?.info(`[${account.accountId}] OSS storage disabled (enabled=${ossConfig?.enabled}, configured=${!!(ossConfig?.accessKeyId && ossConfig?.bucket)})`);
       }
 
       const unregisters: (() => void)[] = [];

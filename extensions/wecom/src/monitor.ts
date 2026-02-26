@@ -5,6 +5,8 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 
 import type {
   ClawdbotConfig,
@@ -16,6 +18,7 @@ import { createWeComCrypto, WeComCrypto } from "./crypto.js";
 import { sendMessage, getAccessToken, clearAccessTokenCache, uploadMedia, sendImageMessage, sendFileMessage, sendVideoMessage, sendVoiceMessage, sendMarkdownMessage, sendTextCardMessage } from "./api.js";
 import { getWeComRuntime } from "./runtime.js";
 import { processBotMentions, parseMentionsFromText } from "./bot-forward.js";
+import { isOSSConfigured, uploadBufferToOSS } from "./oss.js";
 
 const WECOM_TEXT_LIMIT = 2048;
 export const DEFAULT_MEDIA_MAX_MB = 5;
@@ -1288,30 +1291,61 @@ async function deliverWeComReply(params: {
     try {
       runtime.debug?.(`Processing media: ${mediaUrl}`);
 
-      // 下载媒体文件
-      const mediaResponse = await fetch(mediaUrl);
-      if (!mediaResponse.ok) {
-        runtime.error?.(`Failed to fetch media: HTTP ${mediaResponse.status}`);
-        continue;
+      let mediaBuffer: Buffer;
+      let filename: string;
+      let contentType: string;
+
+      // 检查是否是本地文件路径
+      const isLocalFile = mediaUrl.startsWith("/") || mediaUrl.startsWith("file://");
+      const filePath = mediaUrl.startsWith("file://") ? mediaUrl.slice(7) : mediaUrl;
+
+      if (isLocalFile && existsSync(filePath)) {
+        // 从本地文件读取
+        runtime.debug?.(`Reading local file: ${filePath}`);
+        mediaBuffer = await readFile(filePath);
+        filename = filePath.split("/").pop() || "media";
+
+        // 根据扩展名推断 MIME 类型
+        const ext = filename.includes(".") ? filename.split(".").pop()?.toLowerCase() : "";
+        const mimeTypes: Record<string, string> = {
+          jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
+          mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg",
+          mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
+          pdf: "application/pdf", txt: "text/plain",
+          doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        };
+        contentType = mimeTypes[ext || ""] || "application/octet-stream";
+      } else {
+        // 从 URL 下载
+        const mediaResponse = await fetch(mediaUrl);
+        if (!mediaResponse.ok) {
+          runtime.error?.(`Failed to fetch media: HTTP ${mediaResponse.status}`);
+          continue;
+        }
+
+        const contentLength = mediaResponse.headers.get("content-length");
+        if (contentLength && parseInt(contentLength, 10) > maxBytes) {
+          runtime.error?.(`Media file too large: ${contentLength} bytes (max: ${maxBytes})`);
+          continue;
+        }
+
+        mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
+        contentType = mediaResponse.headers.get("content-type") || "application/octet-stream";
+        try {
+          filename = new URL(mediaUrl).pathname.split("/").pop() || "media";
+        } catch {
+          filename = "media";
+        }
       }
 
-      const contentLength = mediaResponse.headers.get("content-length");
-      if (contentLength && parseInt(contentLength, 10) > maxBytes) {
-        runtime.error?.(`Media file too large: ${contentLength} bytes (max: ${maxBytes})`);
-        continue;
-      }
-
-      const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
+      // 检查文件大小
       if (mediaBuffer.length > maxBytes) {
         runtime.error?.(`Media file too large: ${mediaBuffer.length} bytes (max: ${maxBytes})`);
         continue;
       }
 
       // 检测媒体类型
-      const contentType = mediaResponse.headers.get("content-type") || "application/octet-stream";
-      const urlPath = new URL(mediaUrl).pathname;
-      const filename = urlPath.split("/").pop() || "media";
-
       let mediaType: "image" | "voice" | "video" | "file" = "file";
       if (contentType.startsWith("image/")) {
         mediaType = "image";
@@ -1321,9 +1355,19 @@ async function deliverWeComReply(params: {
         mediaType = "video";
       }
 
+      // 上传到 OSS (如果配置了)
+      let ossUrl: string | undefined;
+      if (isOSSConfigured()) {
+        const ossResult = await uploadBufferToOSS(mediaBuffer, filename, contentType);
+        if (ossResult) {
+          ossUrl = ossResult.url;
+          runtime.debug?.(`Media uploaded to OSS: ${ossUrl}`);
+        }
+      }
+
       // 上传到企业微信
       const uploadResult = await uploadMedia(accessToken, mediaType, mediaBuffer, filename);
-      runtime.debug?.(`Media uploaded: ${uploadResult.mediaId}`);
+      runtime.debug?.(`Media uploaded to WeCom: ${uploadResult.mediaId}`);
 
       // 发送消息
       const sendParams = {
@@ -1344,6 +1388,19 @@ async function deliverWeComReply(params: {
           break;
         default:
           await sendFileMessage(accessToken, sendParams);
+      }
+
+      // 如果有 OSS URL，发送下载链接
+      if (ossUrl && mediaType === "file") {
+        // 文件类型额外发送下载链接
+        const linkText = `📎 文件下载链接: ${ossUrl}`;
+        await sendMessage(accessToken, {
+          touser: chatId,
+          msgtype: "text",
+          agentid: account.agentId,
+          text: { content: linkText },
+          safe: 0,
+        });
       }
 
       statusSink?.({ lastOutboundAt: Date.now() });
