@@ -44,6 +44,34 @@ export {
 } from "./src/mention.js";
 export { feishuPlugin } from "./src/channel.js";
 
+// Personal account OAuth support
+export {
+  generateOAuthUrl,
+  exchangeCodeForToken,
+  refreshUserToken,
+  getUserInfo,
+  resolveUserAccessToken,
+  sendUserMessage,
+  completeOAuthFlow,
+  type FeishuUserTokenResponse,
+  type FeishuUserInfo,
+  type FeishuPersonalTokens,
+} from "./src/user-oauth.js";
+export {
+  listPersonalAccountIds,
+  resolvePersonalAccountConfig,
+  resolveFeishuPersonalAccount,
+  listEnabledPersonalAccounts,
+  findPersonalAccountByOpenId,
+} from "./src/accounts.js";
+export {
+  sendMessageAsPersonalUser,
+} from "./src/send.js";
+export {
+  feishuPersonalOnboardingAdapter,
+  refreshPersonalAccountTokens,
+} from "./src/personal-onboarding.js";
+
 const plugin = {
   id: "feishu",
   name: "Feishu",

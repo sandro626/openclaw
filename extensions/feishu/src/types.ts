@@ -3,6 +3,7 @@ import type {
   FeishuConfigSchema,
   FeishuGroupSchema,
   FeishuAccountConfigSchema,
+  FeishuPersonalAccountConfigSchema,
   z,
 } from "./config-schema.js";
 import type { MentionTarget } from "./mention.js";
@@ -10,6 +11,7 @@ import type { MentionTarget } from "./mention.js";
 export type FeishuConfig = z.infer<typeof FeishuConfigSchema>;
 export type FeishuGroupConfig = z.infer<typeof FeishuGroupSchema>;
 export type FeishuAccountConfig = z.infer<typeof FeishuAccountConfigSchema>;
+export type FeishuPersonalAccountConfig = z.infer<typeof FeishuPersonalAccountConfigSchema>;
 
 export type FeishuDomain = "feishu" | "lark" | (string & {});
 export type FeishuConnectionMode = "websocket" | "webhook";
@@ -26,6 +28,28 @@ export type ResolvedFeishuAccount = {
   domain: FeishuDomain;
   /** Merged config (top-level defaults + account-specific overrides) */
   config: FeishuConfig;
+};
+
+/**
+ * Resolved personal account with OAuth tokens.
+ */
+export type ResolvedFeishuPersonalAccount = {
+  accountId: string;
+  enabled: boolean;
+  configured: boolean;
+  name?: string;
+  appId: string;
+  appSecret: string;
+  domain: FeishuDomain;
+  // OAuth tokens
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  openId?: string;
+  unionId?: string;
+  tenantKey?: string;
+  /** Original config */
+  config: FeishuPersonalAccountConfig;
 };
 
 export type FeishuIdType = "open_id" | "user_id" | "union_id" | "chat_id";

@@ -1,5 +1,8 @@
 import type { ClawdbotConfig } from "openclaw/plugin-sdk";
-import { resolveFeishuAccount } from "./accounts.js";
+import {
+  resolveFeishuAccount,
+  resolveFeishuPersonalAccount,
+} from "./accounts.js";
 import { createFeishuClient } from "./client.js";
 import type { MentionTarget } from "./mention.js";
 import { buildMentionedMessage, buildMentionedCardContent } from "./mention.js";
@@ -7,6 +10,10 @@ import { getFeishuRuntime } from "./runtime.js";
 import { assertFeishuMessageApiSuccess, toFeishuSendResult } from "./send-result.js";
 import { resolveReceiveIdType, normalizeFeishuTarget } from "./targets.js";
 import type { FeishuSendResult, ResolvedFeishuAccount } from "./types.js";
+import {
+  resolveUserAccessToken,
+  sendUserMessage,
+} from "./user-oauth.js";
 
 export type FeishuMessageInfo = {
   messageId: string;
@@ -332,4 +339,73 @@ export async function editMessageFeishu(params: {
   if (response.code !== 0) {
     throw new Error(`Feishu message edit failed: ${response.msg || `code ${response.code}`}`);
   }
+}
+
+// ==================== Personal Account Messaging ====================
+
+/**
+ * Send a message as a personal user (using user_access_token).
+ * This allows OpenClaw to send messages as an individual Feishu user.
+ */
+export async function sendMessageAsPersonalUser(params: {
+  cfg: ClawdbotConfig;
+  personalAccountId: string;
+  to: string;
+  text: string;
+}): Promise<FeishuSendResult> {
+  const { cfg, personalAccountId, to, text } = params;
+
+  // Resolve personal account
+  const personalAccount = resolveFeishuPersonalAccount({ cfg, accountId: personalAccountId });
+  if (!personalAccount || !personalAccount.configured) {
+    throw new Error(`Feishu personal account "${personalAccountId}" not configured`);
+  }
+
+  if (!personalAccount.accessToken || !personalAccount.refreshToken) {
+    throw new Error(`Feishu personal account "${personalAccountId}" missing tokens`);
+  }
+
+  // Resolve valid token (refresh if needed)
+  const tokens = await resolveUserAccessToken({
+    appId: personalAccount.appId,
+    appSecret: personalAccount.appSecret,
+    tokens: {
+      accessToken: personalAccount.accessToken,
+      refreshToken: personalAccount.refreshToken,
+      expiresAt: personalAccount.expiresAt ?? 0,
+      openId: personalAccount.openId ?? "",
+    },
+    domain: personalAccount.domain,
+  });
+
+  // Normalize target
+  const receiveId = normalizeFeishuTarget(to);
+  if (!receiveId) {
+    throw new Error(`Invalid Feishu target: ${to}`);
+  }
+
+  const receiveIdType = resolveReceiveIdType(receiveId);
+
+  // Build post message content
+  const tableMode = getFeishuRuntime().channel.text.resolveMarkdownTableMode({
+    cfg,
+    channel: "feishu",
+  });
+  const messageText = getFeishuRuntime().channel.text.convertMarkdownTables(text ?? "", tableMode);
+  const { content, msgType } = buildFeishuPostMessagePayload({ messageText });
+
+  // Send using user_access_token
+  const result = await sendUserMessage({
+    accessToken: tokens.accessToken,
+    receiveId,
+    receiveIdType: receiveIdType as "open_id" | "user_id" | "union_id" | "email" | "chat_id",
+    msgType: msgType as "text" | "post",
+    content,
+    domain: personalAccount.domain,
+  });
+
+  return {
+    messageId: result.messageId,
+    chatId: receiveId,
+  };
 }

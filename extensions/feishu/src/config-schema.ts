@@ -72,6 +72,28 @@ const DynamicAgentCreationSchema = z
   .optional();
 
 /**
+ * Personal account configuration (OAuth user identity).
+ * Allows OpenClaw to act as an individual Feishu user.
+ */
+export const FeishuPersonalAccountConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    name: z.string().optional(), // Display name
+    appId: z.string(), // OAuth app ID
+    appSecret: z.string(), // OAuth app secret
+    // Token storage (can be stored in config or separately)
+    accessToken: z.string().optional(),
+    refreshToken: z.string().optional(),
+    expiresAt: z.number().optional(), // Unix timestamp in ms
+    openId: z.string().optional(), // User's Feishu open_id
+    unionId: z.string().optional(),
+    tenantKey: z.string().optional(),
+    // OAuth callback configuration
+    redirectUri: z.string().optional(),
+  })
+  .strict();
+
+/**
  * Feishu tools configuration.
  * Controls which tool categories are enabled.
  *
@@ -186,8 +208,10 @@ export const FeishuConfigSchema = z
     tools: FeishuToolsConfigSchema,
     // Dynamic agent creation for DM users
     dynamicAgentCreation: DynamicAgentCreationSchema,
-    // Multi-account configuration
+    // Multi-account configuration (bot/app accounts)
     accounts: z.record(z.string(), FeishuAccountConfigSchema.optional()).optional(),
+    // Personal account configuration (OAuth user identity)
+    personalAccounts: z.record(z.string(), FeishuPersonalAccountConfigSchema.optional()).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
