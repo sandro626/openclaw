@@ -51,6 +51,30 @@
   `pkill -9 -f openclaw-gateway || true; nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-gateway.log 2>&1 &`
 - Verify: `openclaw channels status --probe`, `ss -ltnp | rg 18789`, `tail -n 120 /tmp/openclaw-gateway.log`.
 
+## Server Operations & Agent Memory Protection
+
+⚠️ **CRITICAL**: Never delete agent memory during deployment! See `docs/operations/DEPLOY-protection.md` for full details.
+
+### Protected Directories (NEVER DELETE)
+```
+/root/.openclaw/agents/{agent_id}/sessions/   # Session data
+/root/.openclaw/agents/{agent_id}/memory/     # Memory data
+/root/.openclaw/agents/{agent_id}/workspace/  # Workspace
+/root/.openclaw/memory/*.sqlite              # Global memory DB
+```
+
+### Backup Requirements
+- **Backup directory**: `/data/backup/openclaw/`
+- **Before any server operation**: Backup to `/data/backup/openclaw/`
+- **Backup config**: `cp /root/.openclaw/openclaw.json /data/backup/openclaw/config/openclaw_$(date +%Y%m%d).json`
+- **Backup agent sessions**: `cp -r /root/.openclaw/agents/{agent_id}/sessions /data/backup/openclaw/agents/{agent_id}_$(date +%Y%m%d)/`
+
+### Safe Deployment Sequence
+1. Backup config and sessions to `/data/backup/openclaw/`
+2. Update software: `sudo npm i -g openclaw@latest`
+3. Restart gateway (DO NOT delete any agent data directories)
+4. Verify: `openclaw skills list` to confirm skills are loaded
+
 ## Build, Test, and Development Commands
 
 - Runtime baseline: Node **22+** (keep Node + Bun paths working).
