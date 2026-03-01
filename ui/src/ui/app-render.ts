@@ -242,6 +242,19 @@ export function renderApp(state: AppViewState) {
           </div>
         </div>
         <div class="topbar-status">
+          ${
+            !state.connected
+              ? html`
+                  <button
+                    class="pill pill--button"
+                    @click=${state.openLoginModal}
+                    title="Login with token"
+                  >
+                    <span>${t("common.login")}</span>
+                  </button>
+                `
+              : nothing
+          }
           <div class="pill">
             <span class="statusDot ${versionStatusClass}"></span>
             <span>${t("common.version")}</span>
@@ -1137,6 +1150,60 @@ export function renderApp(state: AppViewState) {
       </main>
       ${renderExecApprovalPrompt(state)}
       ${renderGatewayUrlConfirmation(state)}
+      ${renderLoginModal(state)}
+    </div>
+  `;
+}
+
+function renderLoginModal(state: AppViewState) {
+  if (!state.showLoginModal) {
+    return nothing;
+  }
+
+  return html`
+    <div class="exec-approval-overlay" role="dialog" aria-modal="true" aria-live="polite">
+      <div class="exec-approval-card">
+        <div class="exec-approval-header">
+          <div>
+            <div class="exec-approval-title">${t("login.title")}</div>
+            <div class="exec-approval-sub">${t("login.subtitle")}</div>
+          </div>
+        </div>
+        <div style="margin-top: 16px;">
+          <label style="display: block; margin-bottom: 6px; font-weight: 500;">
+            ${t("login.tokenLabel")}
+          </label>
+          <input
+            type="password"
+            .value=${state.loginToken}
+            @input=${state.handleLoginTokenChange}
+            placeholder=${t("login.placeholder")}
+            style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-color); font-size: 14px; box-sizing: border-box;"
+            autofocus
+          />
+        </div>
+        <div style="margin-top: 12px; font-size: 13px; color: var(--muted);">
+          ${t("login.hint")}
+          <code class="mono" style="background: var(--code-bg); padding: 2px 6px; border-radius: 4px;">
+            openclaw doctor --generate-gateway-token
+          </code>
+        </div>
+        <div class="exec-approval-actions" style="margin-top: 16px;">
+          <button
+            class="btn primary"
+            @click=${state.submitLogin}
+            ?disabled=${!state.loginToken.trim()}
+          >
+            ${t("login.submit")}
+          </button>
+          <button
+            class="btn"
+            @click=${state.closeLoginModal}
+          >
+            ${t("common.cancel")}
+          </button>
+        </div>
+      </div>
     </div>
   `;
 }

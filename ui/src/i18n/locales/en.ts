@@ -13,6 +13,16 @@ export const en: TranslationMap = {
     na: "n/a",
     docs: "Docs",
     resources: "Resources",
+    login: "Log In",
+    cancel: "Cancel",
+  },
+  login: {
+    title: "Login",
+    subtitle: "Enter your gateway token to connect",
+    tokenLabel: "Gateway Token",
+    placeholder: "Enter token...",
+    hint: "Generate a token with:",
+    submit: "Login",
   },
   nav: {
     chat: "Chat",

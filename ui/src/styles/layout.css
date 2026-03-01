@@ -190,6 +190,23 @@
   height: 12px;
 }
 
+.topbar-status .pill--button {
+  background: var(--accent-color);
+  color: var(--accent-contrast);
+  border: none;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  transition: background 0.15s ease;
+}
+
+.topbar-status .pill--button:hover {
+  background: var(--accent-hover);
+}
+
 /* ===========================================
    Navigation Sidebar
    =========================================== */

@@ -265,6 +265,12 @@ export type AppViewState = {
   setTab: (tab: Tab) => void;
   setTheme: (theme: ThemeMode, context?: ThemeTransitionContext) => void;
   applySettings: (next: UiSettings) => void;
+  openLoginModal: () => void;
+  closeLoginModal: () => void;
+  handleLoginTokenChange: (e: Event) => void;
+  submitLogin: () => void;
+  showLoginModal: boolean;
+  loginToken: string;
   loadOverview: () => Promise<void>;
   loadAssistantIdentity: () => Promise<void>;
   loadCron: () => Promise<void>;

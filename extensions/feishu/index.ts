@@ -22,7 +22,19 @@ export {
   sendImageFeishu,
   sendFileFeishu,
   sendMediaFeishu,
+  uploadMediaToOSS,
+  isOSSUploadAvailable,
+  type OSSMediaResult,
 } from "./src/media.js";
+export {
+  setOSSConfig,
+  getOSSConfig,
+  isOSSConfigured,
+  uploadBufferToOSS,
+  uploadUrlToOSS,
+  type OSSConfig,
+  type OSSUploadResult,
+} from "./src/oss.js";
 export { probeFeishu } from "./src/probe.js";
 export {
   addReactionFeishu,

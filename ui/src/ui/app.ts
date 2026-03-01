@@ -172,6 +172,10 @@ export class OpenClawApp extends LitElement {
   @state() execApprovalsTarget: "gateway" | "node" = "gateway";
   @state() execApprovalsTargetNodeId: string | null = null;
   @state() execApprovalQueue: ExecApprovalRequest[] = [];
+
+  // Login modal state
+  @state() showLoginModal = false;
+  @state() loginToken = "";
   @state() execApprovalBusy = false;
   @state() execApprovalError: string | null = null;
   @state() pendingGatewayUrl: string | null = null;
@@ -456,6 +460,31 @@ export class OpenClawApp extends LitElement {
 
   applySettings(next: UiSettings) {
     applySettingsInternal(this as unknown as Parameters<typeof applySettingsInternal>[0], next);
+  }
+
+  openLoginModal() {
+    this.showLoginModal = true;
+    this.loginToken = "";
+  }
+
+  closeLoginModal() {
+    this.showLoginModal = false;
+    this.loginToken = "";
+  }
+
+  handleLoginTokenChange(e: Event) {
+    this.loginToken = (e.target as HTMLInputElement).value;
+  }
+
+  submitLogin() {
+    const token = this.loginToken.trim();
+    if (token) {
+      this.applySettings({ ...this.settings, token });
+      this.showLoginModal = false;
+      this.loginToken = "";
+      // Trigger reconnection
+      connectGateway(this as unknown as Parameters<typeof connectGateway>[0]);
+    }
   }
 
   setTab(next: Tab) {

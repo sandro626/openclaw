@@ -525,6 +525,18 @@ export function attachGatewayWsMessageHandler(params: {
             return false;
           }
 
+          // When dangerouslyDisableDeviceAuth is enabled but no auth provided,
+          // prompt user to provide token/password
+          if (decision.kind === "reject-auth-required-for-bypass") {
+            const errorMessage = "authentication required (provide token or password)";
+            markHandshakeFailure("auth-required-for-bypass");
+            sendHandshakeErrorResponse(ErrorCodes.NOT_AUTHENTICATED, errorMessage, {
+              details: { code: ConnectErrorDetailCodes.AUTH_REQUIRED },
+            });
+            close(1008, errorMessage);
+            return false;
+          }
+
           if (decision.kind === "reject-unauthorized") {
             rejectUnauthorized(authResult);
             return false;

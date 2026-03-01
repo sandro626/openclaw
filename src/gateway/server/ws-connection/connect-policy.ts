@@ -62,6 +62,7 @@ export function isTrustedProxyControlUiOperatorAuth(params: {
 export type MissingDeviceIdentityDecision =
   | { kind: "allow" }
   | { kind: "reject-control-ui-insecure-auth" }
+  | { kind: "reject-auth-required-for-bypass" }
   | { kind: "reject-unauthorized" }
   | { kind: "reject-device-required" };
 
@@ -81,6 +82,16 @@ export function evaluateMissingDeviceIdentity(params: {
   }
   if (params.isControlUi && params.trustedProxyAuthOk) {
     return { kind: "allow" };
+  }
+  // When dangerouslyDisableDeviceAuth is enabled, allow Control UI without device identity
+  // but still require basic auth (token/password) to pass
+  if (params.isControlUi && params.controlUiAuthPolicy.allowBypass && params.sharedAuthOk) {
+    return { kind: "allow" };
+  }
+  // When dangerouslyDisableDeviceAuth is enabled but no auth provided,
+  // return auth-required so UI shows login prompt
+  if (params.isControlUi && params.controlUiAuthPolicy.allowBypass && !params.hasSharedAuth) {
+    return { kind: "reject-auth-required-for-bypass" };
   }
   if (params.isControlUi && !params.controlUiAuthPolicy.allowBypass) {
     // Allow localhost Control UI connections when allowInsecureAuth is configured.

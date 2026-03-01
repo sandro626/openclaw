@@ -8,6 +8,7 @@ import { createFeishuClient } from "./client.js";
 import { getFeishuRuntime } from "./runtime.js";
 import { assertFeishuMessageApiSuccess, toFeishuSendResult } from "./send-result.js";
 import { resolveReceiveIdType, normalizeFeishuTarget } from "./targets.js";
+import { isOSSConfigured, uploadBufferToOSS, uploadUrlToOSS } from "./oss.js";
 
 export type DownloadImageResult = {
   buffer: Buffer;
@@ -446,4 +447,51 @@ export async function sendMediaFeishu(params: {
       accountId,
     });
   }
+}
+
+/**
+ * OSS upload result for media files
+ */
+export type OSSMediaResult = {
+  url: string;
+  key: string;
+  size: number;
+  contentType: string;
+};
+
+/**
+ * Upload media file to OSS and return public URL.
+ * Returns null if OSS is not configured or upload fails.
+ */
+export async function uploadMediaToOSS(params: {
+  mediaUrl?: string;
+  mediaBuffer?: Buffer;
+  fileName?: string;
+}): Promise<OSSMediaResult | null> {
+  const { mediaUrl, mediaBuffer, fileName } = params;
+
+  if (!isOSSConfigured()) {
+    return null;
+  }
+
+  try {
+    if (mediaBuffer) {
+      const result = await uploadBufferToOSS(mediaBuffer, fileName ?? "file");
+      return result;
+    } else if (mediaUrl) {
+      const result = await uploadUrlToOSS(mediaUrl, fileName);
+      return result;
+    }
+    return null;
+  } catch (err) {
+    console.error("[Feishu OSS] Media upload failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Check if OSS upload is available
+ */
+export function isOSSUploadAvailable(): boolean {
+  return isOSSConfigured();
 }

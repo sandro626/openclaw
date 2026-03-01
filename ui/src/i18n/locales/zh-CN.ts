@@ -13,6 +13,16 @@ export const zh_CN: TranslationMap = {
     na: "不适用",
     docs: "文档",
     resources: "资源",
+    login: "登录",
+    cancel: "取消",
+  },
+  login: {
+    title: "登录",
+    subtitle: "输入网关令牌以连接",
+    tokenLabel: "网关令牌",
+    placeholder: "输入令牌...",
+    hint: "使用以下命令生成令牌：",
+    submit: "登录",
   },
   nav: {
     chat: "聊天",

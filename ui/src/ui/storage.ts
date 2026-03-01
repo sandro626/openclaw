@@ -1,6 +1,7 @@
 const KEY = "openclaw.control.settings.v1";
 
 import { isSupportedLocale } from "../i18n/index.ts";
+import { inferBasePathFromPathname } from "./navigation.ts";
 import type { ThemeMode } from "./theme.ts";
 
 export type UiSettings = {
@@ -20,7 +21,11 @@ export type UiSettings = {
 export function loadSettings(): UiSettings {
   const defaultUrl = (() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${location.host}`;
+    // Infer base path by detecting known route segments (chat, overview, etc.)
+    const basePath = inferBasePathFromPathname(location.pathname);
+    // Append /ws for WebSocket endpoint
+    const wsPath = basePath ? `${basePath}/ws` : "/ws";
+    return `${proto}://${location.host}${wsPath}`;
   })();
 
   const defaults: UiSettings = {

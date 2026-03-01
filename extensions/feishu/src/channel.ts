@@ -24,6 +24,7 @@ import { probeFeishu } from "./probe.js";
 import { sendMessageFeishu } from "./send.js";
 import { normalizeFeishuTarget, looksLikeFeishuId, formatFeishuTarget } from "./targets.js";
 import type { ResolvedFeishuAccount, FeishuConfig } from "./types.js";
+import { setOSSConfig, isOSSConfigured, uploadBufferToOSS, uploadUrlToOSS } from "./oss.js";
 
 const meta: ChannelMeta = {
   id: "feishu",
@@ -335,6 +336,26 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount> = {
     startAccount: async (ctx) => {
       const { monitorFeishuProvider } = await import("./monitor.js");
       const account = resolveFeishuAccount({ cfg: ctx.cfg, accountId: ctx.accountId });
+      const feishuConfig = (ctx.cfg.channels?.feishu ?? {}) as FeishuConfig;
+
+      // 初始化 OSS 配置 - 优先使用账户级配置，回退到渠道级配置
+      const ossConfig = account.config?.oss ?? feishuConfig.oss;
+      if (ossConfig?.enabled !== false && ossConfig?.accessKeyId && ossConfig?.accessKeySecret && ossConfig?.bucket && ossConfig?.region) {
+        setOSSConfig({
+          accessKeyId: ossConfig.accessKeyId,
+          accessKeySecret: ossConfig.accessKeySecret,
+          bucket: ossConfig.bucket,
+          region: ossConfig.region,
+          endpoint: ossConfig.endpoint,
+          publicUrlPrefix: ossConfig.publicUrlPrefix,
+          uploadPath: ossConfig.uploadPath,
+        });
+        ctx.log?.info(`[${ctx.accountId}] OSS storage enabled: bucket=${ossConfig.bucket}, region=${ossConfig.region}`);
+      } else {
+        setOSSConfig(null);
+        ctx.log?.info(`[${ctx.accountId}] OSS storage disabled (enabled=${ossConfig?.enabled}, configured=${!!(ossConfig?.accessKeyId && ossConfig?.bucket)})`);
+      }
+
       const port = account.config?.webhookPort ?? null;
       ctx.setStatus({ accountId: ctx.accountId, port });
       ctx.log?.info(

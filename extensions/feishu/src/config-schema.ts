@@ -122,6 +122,24 @@ const FeishuToolsConfigSchema = z
  */
 const TopicSessionModeSchema = z.enum(["disabled", "enabled"]).optional();
 
+/**
+ * OSS storage configuration.
+ * When enabled, media files can be uploaded to Aliyun OSS for public access.
+ */
+const OSSConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    accessKeyId: z.string().optional(),
+    accessKeySecret: z.string().optional(),
+    bucket: z.string().optional(),
+    region: z.string().optional(),
+    endpoint: z.string().optional(),
+    publicUrlPrefix: z.string().optional(),
+    uploadPath: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
 export const FeishuGroupSchema = z
   .object({
     requireMention: z.boolean().optional(),
@@ -170,6 +188,7 @@ export const FeishuAccountConfigSchema = z
     renderMode: RenderModeSchema,
     streaming: StreamingModeSchema, // Enable streaming card mode (default: true)
     tools: FeishuToolsConfigSchema,
+    oss: OSSConfigSchema, // OSS storage configuration (per-account override)
   })
   .strict();
 
@@ -208,6 +227,8 @@ export const FeishuConfigSchema = z
     tools: FeishuToolsConfigSchema,
     // Dynamic agent creation for DM users
     dynamicAgentCreation: DynamicAgentCreationSchema,
+    // OSS storage configuration
+    oss: OSSConfigSchema,
     // Multi-account configuration (bot/app accounts)
     accounts: z.record(z.string(), FeishuAccountConfigSchema.optional()).optional(),
     // Personal account configuration (OAuth user identity)
