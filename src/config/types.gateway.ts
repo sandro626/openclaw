@@ -315,6 +315,27 @@ export type GatewayToolsConfig = {
   allow?: string[];
 };
 
+/**
+ * Error notification configuration.
+ * When enabled, critical gateway errors will be sent to the specified channel.
+ */
+export type GatewayErrorNotificationConfig = {
+  /** Enable error notifications. */
+  enabled?: boolean;
+  /**
+   * Target for error notifications.
+   * For Feishu: use chat ID (e.g., "oc_xxx" for group, "ou_xxx" for user)
+   */
+  target?: string;
+  /**
+   * Minimum severity level to notify.
+   * - fatal: Only fatal errors (crashes)
+   * - error: All unhandled errors (default)
+   * - warn: Include warnings (transient errors)
+   */
+  level?: "fatal" | "error" | "warn";
+};
+
 export type GatewayConfig = {
   /** Single multiplexed port for Gateway WS + HTTP (default: 18789). */
   port?: number;
@@ -362,4 +383,9 @@ export type GatewayConfig = {
    * Set to 0 to disable. Default: 5.
    */
   channelHealthCheckMinutes?: number;
+  /**
+   * Error notification configuration.
+   * When enabled, critical gateway errors will be sent to the specified channel.
+   */
+  errorNotification?: GatewayErrorNotificationConfig;
 };

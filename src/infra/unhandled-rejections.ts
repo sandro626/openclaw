@@ -1,5 +1,6 @@
 import process from "node:process";
 import { extractErrorCode, formatUncaughtError } from "./errors.js";
+import { notifyError } from "./error-notifier.js";
 
 type UnhandledRejectionHandler = (reason: unknown) => boolean;
 
@@ -246,12 +247,16 @@ export function installUnhandledRejectionHandler(): void {
 
     if (isFatalError(reason)) {
       console.error("[openclaw] FATAL unhandled rejection:", formatUncaughtError(reason));
+      // Notify about fatal errors
+      notifyError(reason, { type: "fatal", message: "FATAL unhandled rejection" }).catch(() => {});
       process.exit(1);
       return;
     }
 
     if (isConfigError(reason)) {
       console.error("[openclaw] CONFIGURATION ERROR - requires fix:", formatUncaughtError(reason));
+      // Notify about config errors
+      notifyError(reason, { type: "config", message: "CONFIGURATION ERROR" }).catch(() => {});
       process.exit(1);
       return;
     }
@@ -261,10 +266,14 @@ export function installUnhandledRejectionHandler(): void {
         "[openclaw] Non-fatal unhandled rejection (continuing):",
         formatUncaughtError(reason),
       );
+      // Notify about transient errors (these are warnings, not critical)
+      notifyError(reason, { type: "transient", message: "Non-fatal network error" }).catch(() => {});
       return;
     }
 
     console.error("[openclaw] Unhandled promise rejection:", formatUncaughtError(reason));
+    // Notify about unhandled rejections
+    notifyError(reason, { type: "error", message: "Unhandled promise rejection" }).catch(() => {});
     process.exit(1);
   });
 }
