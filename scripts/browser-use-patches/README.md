@@ -131,6 +131,41 @@ ls /opt/browser-use-venv/lib/python3.12/site-packages/browser_use/llm/openai/cha
 
 3. For MiniMax: Check if thinking tags format matches the regex patterns
 
+## Model Selection
+
+### MiniMax M2.5 (Recommended - Faster & Cheaper)
+
+MiniMax M2.5 is the default model for browser-use:
+- **Faster**: ~30% faster than GLM-4.7
+- **Cheaper**: Lower API costs
+- **Stable**: Better JSON output formatting
+
+```bash
+# Default uses MiniMax M2.5
+browser-use-cli "访问百度获取页面标题"
+
+# Explicitly use MiniMax
+browser-use-cli "访问百度" -m minimax
+```
+
+### GLM-4.7 (Fallback)
+
+Use GLM-4.7 if MiniMax is unavailable:
+```bash
+browser-use-cli "访问百度" -m glm
+```
+
+## Configuration
+
+### MiniMax API
+- **Endpoint**: `https://api.minimaxi.com/v1`
+- **Model**: `MiniMax-M2.5`
+- **Config location**: `/usr/local/bin/browser-use-cli`
+
+### GLM API
+- **Endpoint**: `https://open.bigmodel.cn/api/paas/v4`
+- **Model**: `glm-4.7`
+
 ## Deployment
 
 When deploying to a new server:
@@ -138,3 +173,4 @@ When deploying to a new server:
 1. Install browser-use in virtual environment
 2. Copy this directory to the server
 3. Run `./apply-patches.sh`
+4. Update `/usr/local/bin/browser-use-cli` with desired model configuration
