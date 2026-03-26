@@ -1,0 +1,190 @@
+{
+  "id": "superBrower",
+  "name": "superBrower",
+  "description": "Playwright + CDP browser executor with reusable action DSL and site profiles.",
+  "skills": ["./skills"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "cdpUrl": {
+        "type": "string",
+        "description": "Optional remote CDP endpoint to attach to."
+      },
+      "chromePath": {
+        "type": "string",
+        "description": "Optional Chrome/Chromium executable path when launching locally."
+      },
+      "headless": {
+        "type": "boolean",
+        "description": "Whether to launch the browser in headless mode."
+      },
+      "connectTimeoutMs": {
+        "type": "number",
+        "description": "Browser connect or launch timeout in milliseconds."
+      },
+      "actionTimeoutMs": {
+        "type": "number",
+        "description": "Default action timeout in milliseconds."
+      },
+      "snapshotMaxLength": {
+        "type": "number",
+        "description": "Maximum text length returned in page snapshots."
+      },
+      "launchArgs": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Extra browser launch arguments."
+      },
+      "planner": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable the MiniMax planner layer."
+          },
+          "baseUrl": {
+            "type": "string",
+            "description": "Anthropic-compatible MiniMax endpoint."
+          },
+          "apiKeyEnv": {
+            "type": "string",
+            "description": "Environment variable name holding the MiniMax API key."
+          },
+          "model": {
+            "type": "string",
+            "description": "Planner model id."
+          },
+          "maxTokens": {
+            "type": "number",
+            "description": "Planner response token limit."
+          },
+          "maxSteps": {
+            "type": "number",
+            "description": "Maximum planned browser steps."
+          },
+          "temperature": {
+            "type": "number",
+            "description": "Planner temperature."
+          }
+        }
+      },
+      "siteProfiles": {
+        "type": "array",
+        "description": "Optional site-specific selector profiles.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "urlPatterns": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "fieldConfigs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": { "type": "string" },
+                  "selectors": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["name", "selectors"]
+              }
+            },
+            "agreementSelectors": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "submitSelectors": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "otpSelectors": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "otpMode": {
+              "type": "string",
+              "enum": ["single", "digits"]
+            },
+            "successSignals": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "url",
+                      "title",
+                      "cookie",
+                      "localStorage",
+                      "sessionStorage",
+                      "request",
+                      "response"
+                    ]
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "number"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": ["value"]
+              }
+            },
+            "failureSignals": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "url",
+                      "title",
+                      "cookie",
+                      "localStorage",
+                      "sessionStorage",
+                      "request",
+                      "response"
+                    ]
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "number"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": ["value"]
+              }
+            },
+            "postLoginCandidates": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["id", "urlPatterns"]
+        }
+      }
+    }
+  }
+}

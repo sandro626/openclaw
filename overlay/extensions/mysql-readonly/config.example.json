@@ -1,0 +1,21 @@
+{
+  "plugins": {
+    "entries": {
+      "mysql-readonly": {
+        "enabled": true,
+        "config": {
+          "host": "127.0.0.1",
+          "port": 3306,
+          "user": "openclaw_ro",
+          "password": "${MYSQL_READONLY_PASSWORD}",
+          "database": "znxf_sclist_com",
+          "allowedTables": ["t_model", "t_model_account"],
+          "connectTimeoutMs": 10000,
+          "queryTimeoutMs": 15000,
+          "maxRows": 200,
+          "ssl": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@openclaw/mysql-readonly",
+  "version": "2026.3.21",
+  "private": true,
+  "description": "OpenClaw read-only MySQL query plugin",
+  "type": "module",
+  "dependencies": {
+    "mysql2": "^3.15.2",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "install": {
+      "npmSpec": "@openclaw/mysql-readonly",
+      "localPath": "extensions/mysql-readonly",
+      "defaultChoice": "npm"
+    }
+  }
+}

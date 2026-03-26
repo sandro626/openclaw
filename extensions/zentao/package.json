@@ -1,0 +1,23 @@
+{
+  "name": "@openclaw/zentao",
+  "version": "2026.3.21",
+  "private": true,
+  "description": "OpenClaw Zentao API integration plugin",
+  "type": "module",
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "install": {
+      "npmSpec": "@openclaw/zentao",
+      "localPath": "extensions/zentao",
+      "defaultChoice": "npm"
+    }
+  }
+}

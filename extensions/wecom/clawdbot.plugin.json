@@ -1,0 +1,12 @@
+{
+  "id": "wecom",
+  "name": "@clawdbot/wecom",
+  "version": "1.0.0",
+  "description": "WeCom (企业微信) channel plugin for Clawdbot",
+  "channels": ["wecom"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
