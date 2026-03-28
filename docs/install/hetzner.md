@@ -118,10 +118,10 @@ For the generic Docker flow, see [Docker](/install/docker).
     All long-lived state must live on the host.
 
     ```bash
-    mkdir -p /root/.openclaw/workspace
+    mkdir -p "$HOME/.openclaw/workspace"
 
     # Set ownership to the container user (uid 1000):
-    chown -R 1000:1000 /root/.openclaw
+    chown -R 1000:1000 "$HOME/.openclaw"
     ```
 
   </Step>
@@ -135,8 +135,8 @@ For the generic Docker flow, see [Docker](/install/docker).
     OPENCLAW_GATEWAY_BIND=lan
     OPENCLAW_GATEWAY_PORT=18789
 
-    OPENCLAW_CONFIG_DIR=/root/.openclaw
-    OPENCLAW_WORKSPACE_DIR=/root/.openclaw/workspace
+    OPENCLAW_CONFIG_DIR=$HOME/.openclaw
+    OPENCLAW_WORKSPACE_DIR=$HOME/.openclaw/workspace
 
     GOG_KEYRING_PASSWORD=change-me-now
     XDG_CONFIG_HOME=/home/node/.openclaw

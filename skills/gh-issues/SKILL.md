@@ -3,23 +3,7 @@ name: gh-issues
 description: "Fetch GitHub issues, spawn sub-agents to implement fixes and open PRs, then monitor and address PR review comments. Usage: /gh-issues [owner/repo] [--label bug] [--limit 5] [--milestone v1.0] [--assignee @me] [--fork user/repo] [--watch] [--interval 5] [--reviews-only] [--cron] [--dry-run] [--model glm-5] [--notify-channel -1002381931352]"
 user-invocable: true
 metadata:
-  {
-    "openclaw":
-      {
-        "requires": { "bins": ["curl", "git", "gh"] },
-        "primaryEnv": "GH_TOKEN",
-        "install":
-          [
-            {
-              "id": "brew",
-              "kind": "brew",
-              "formula": "gh",
-              "bins": ["gh"],
-              "label": "Install GitHub CLI (brew)",
-            },
-          ],
-      },
-  }
+  { "openclaw": { "requires": { "bins": ["curl", "git", "jq"] }, "primaryEnv": "GH_TOKEN" } }
 ---
 
 # gh-issues — Auto-fix GitHub Issues with Parallel Sub-agents
@@ -95,13 +79,8 @@ echo $GH_TOKEN
 If empty, read from config:
 
 ```
-cat ~/.openclaw/openclaw.json | jq -r '.skills.entries["gh-issues"].apiKey // empty'
-```
-
-If still empty, check `/data/.clawdbot/openclaw.json`:
-
-```
-cat /data/.clawdbot/openclaw.json | jq -r '.skills.entries["gh-issues"].apiKey // empty'
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+cat "$OPENCLAW_HOME/openclaw.json" | jq -r '.skills.entries["gh-issues"].apiKey // empty'
 ```
 
 Export as GH_TOKEN for subsequent commands:
@@ -268,9 +247,11 @@ Run these checks sequentially via exec:
    Read the claims file (create empty `{}` if missing):
 
    ```
-   CLAIMS_FILE="/data/.clawdbot/gh-issues-claims.json"
+   OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+   GH_ISSUES_STATE_DIR="${GH_ISSUES_STATE_DIR:-$OPENCLAW_HOME/skills/gh-issues}"
+   CLAIMS_FILE="$GH_ISSUES_STATE_DIR/gh-issues-claims.json"
    if [ ! -f "$CLAIMS_FILE" ]; then
-     mkdir -p /data/.clawdbot
+     mkdir -p "$GH_ISSUES_STATE_DIR"
      echo '{}' > "$CLAIMS_FILE"
    fi
    ```
@@ -303,13 +284,16 @@ Run these checks sequentially via exec:
 - **Sequential cursor tracking:** Use a cursor file to track which issue to process next:
 
   ```
-  CURSOR_FILE="/data/.clawdbot/gh-issues-cursor-{SOURCE_REPO_SLUG}.json"
+  OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+  GH_ISSUES_STATE_DIR="${GH_ISSUES_STATE_DIR:-$OPENCLAW_HOME/skills/gh-issues}"
+  CURSOR_FILE="$GH_ISSUES_STATE_DIR/gh-issues-cursor-{SOURCE_REPO_SLUG}.json"
   # SOURCE_REPO_SLUG = owner-repo with slashes replaced by hyphens (e.g., openclaw-openclaw)
   ```
 
   Read the cursor file (create if missing):
 
   ```
+  mkdir -p "$GH_ISSUES_STATE_DIR"
   if [ ! -f "$CURSOR_FILE" ]; then
     echo '{"last_processed": null, "in_progress": null}' > "$CURSOR_FILE"
   fi
@@ -362,7 +346,8 @@ You are a focused code-fix agent. Your task is to fix a single GitHub issue and 
 IMPORTANT: Do NOT use the gh CLI — it is not installed. Use curl with the GitHub REST API for all GitHub operations.
 
 First, ensure GH_TOKEN is set. Check: `echo $GH_TOKEN`. If empty, read from config:
-GH_TOKEN=$(cat ~/.openclaw/openclaw.json 2>/dev/null | jq -r '.skills.entries["gh-issues"].apiKey // empty') || GH_TOKEN=$(cat /data/.clawdbot/openclaw.json 2>/dev/null | jq -r '.skills.entries["gh-issues"].apiKey // empty')
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+GH_TOKEN="${GH_TOKEN:-$(jq -r '.skills.entries[\"gh-issues\"].apiKey // empty' "$OPENCLAW_HOME/openclaw.json" 2>/dev/null)}"
 
 Use the token in all GitHub API calls:
 curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" ...
@@ -391,13 +376,8 @@ Follow these steps in order. If any step fails, report the failure and stop.
 0. SETUP — Ensure GH_TOKEN is available:
 ```
 
-export GH_TOKEN=$(node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync('/data/.clawdbot/openclaw.json','utf8')); console.log(c.skills?.entries?.['gh-issues']?.apiKey || '')")
-
-```
-If that fails, also try:
-```
-
-export GH_TOKEN=$(cat ~/.openclaw/openclaw.json 2>/dev/null | node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(0,'utf8'));console.log(d.skills?.entries?.['gh-issues']?.apiKey||'')")
+export OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+export GH_TOKEN="${GH_TOKEN:-$(node -e "const fs=require('fs'); const path=process.env.OPENCLAW_HOME + '/openclaw.json'; const c=JSON.parse(fs.readFileSync(path,'utf8')); console.log(c.skills?.entries?.['gh-issues']?.apiKey || '')" 2>/dev/null)}"
 
 ```
 Verify: echo "Token: ${GH_TOKEN:0:10}..."
@@ -730,7 +710,8 @@ You are a PR review handler agent. Your task is to address review comments on a 
 IMPORTANT: Do NOT use the gh CLI — it is not installed. Use curl with the GitHub REST API for all GitHub operations.
 
 First, ensure GH_TOKEN is set. Check: echo $GH_TOKEN. If empty, read from config:
-GH_TOKEN=$(cat ~/.openclaw/openclaw.json 2>/dev/null | jq -r '.skills.entries["gh-issues"].apiKey // empty') || GH_TOKEN=$(cat /data/.clawdbot/openclaw.json 2>/dev/null | jq -r '.skills.entries["gh-issues"].apiKey // empty')
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+GH_TOKEN="${GH_TOKEN:-$(jq -r '.skills.entries[\"gh-issues\"].apiKey // empty' "$OPENCLAW_HOME/openclaw.json" 2>/dev/null)}"
 
 <config>
 Repository: {SOURCE_REPO}
@@ -761,7 +742,8 @@ Follow these steps in order:
 0. SETUP — Ensure GH_TOKEN is available:
 ```
 
-export GH_TOKEN=$(node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync('/data/.clawdbot/openclaw.json','utf8')); console.log(c.skills?.entries?.['gh-issues']?.apiKey || '')")
+export OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+export GH_TOKEN="${GH_TOKEN:-$(node -e "const fs=require('fs'); const path=process.env.OPENCLAW_HOME + '/openclaw.json'; const c=JSON.parse(fs.readFileSync(path,'utf8')); console.log(c.skills?.entries?.['gh-issues']?.apiKey || '')" 2>/dev/null)}"
 
 ```
 Verify: echo "Token: ${GH_TOKEN:0:10}..."

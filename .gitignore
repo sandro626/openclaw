@@ -1,5 +1,10 @@
 node_modules
 **/node_modules/
+
+# Overlay runtime data (keep local, never push)
+overlay/agents/*/sessions/
+overlay/agents/*/workspace/memory/
+*.sqlite
 .env
 docker-compose.override.yml
 docker-compose.extra.yml
@@ -17,6 +22,7 @@ __pycache__/
 .worktrees/
 .DS_Store
 **/.DS_Store
+**/*:Zone.Identifier
 ui/src/ui/__screenshots__/
 ui/playwright-report/
 ui/test-results/

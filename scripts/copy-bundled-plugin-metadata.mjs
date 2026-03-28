@@ -35,6 +35,10 @@ function rewritePackageEntry(entry) {
   return `./${rewritten}`;
 }
 
+function shouldPreserveRuntimeNodeModules(packageJson) {
+  return packageJson?.openclaw?.bundle?.stageRuntimeDependencies === true;
+}
+
 function ensurePathInsideRoot(rootDir, rawPath) {
   const resolved = path.resolve(rootDir, rawPath);
   const relative = path.relative(rootDir, resolved);
@@ -208,10 +212,13 @@ export function copyBundledPluginMetadata(params = {}) {
     }
 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    // Generated skill assets live under a dedicated dist-owned directory. Also
-    // remove the older bad node_modules tree so release packs cannot pick it up.
+    // Generated skill assets live under a dedicated dist-owned directory.
+    // Keep staged runtime dependency trees for plugins that manage them in the
+    // follow-up runtime-deps step; other plugins still drop stale node_modules.
     removePathIfExists(path.join(distPluginDir, GENERATED_BUNDLED_SKILLS_DIR));
-    removePathIfExists(path.join(distPluginDir, "node_modules"));
+    if (!shouldPreserveRuntimeNodeModules(packageJson)) {
+      removePathIfExists(path.join(distPluginDir, "node_modules"));
+    }
     const copiedSkills = copyDeclaredPluginSkillPaths({
       manifest,
       pluginDir,
