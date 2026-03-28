@@ -2,7 +2,7 @@
  * WeCom Runtime - 共享运行时环境
  */
 
-import type { PluginRuntime } from "openclaw/plugin-sdk";
+import type { PluginRuntime } from "../api.js";
 
 let runtime: PluginRuntime | null = null;
 

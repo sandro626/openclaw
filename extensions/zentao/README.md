@@ -28,7 +28,7 @@ Skill:
 - `zentao`
 
 The skill lives at
-[`skills/zentao/SKILL.md`](/home/zhongle/dev/openclaw-main/extensions/zentao/skills/zentao/SKILL.md)
+[`skills/zentao/SKILL.md`](./skills/zentao/SKILL.md)
 and tells the agent how to resolve IDs and call the generic tools safely.
 
 ## Enable
@@ -68,7 +68,7 @@ Bundled plugins are disabled by default. Enable `zentao` under
 Restart the Gateway after enabling.
 
 A copy-pasteable example file is available at
-[`config.example.json`](/home/zhongle/dev/openclaw-main/extensions/zentao/config.example.json).
+[`config.example.json`](./config.example.json).
 
 ## Recommended config
 
@@ -280,7 +280,7 @@ pnpm exec vitest run extensions/zentao/src/auth.test.ts extensions/zentao/src/cl
 
 ## Related files
 
-- [`DESIGN.md`](/home/zhongle/dev/openclaw-main/extensions/zentao/DESIGN.md)
-- [`TASKS.md`](/home/zhongle/dev/openclaw-main/extensions/zentao/TASKS.md)
-- [`SKILL.md`](/home/zhongle/dev/openclaw-main/extensions/zentao/skills/zentao/SKILL.md)
-- [`config.example.json`](/home/zhongle/dev/openclaw-main/extensions/zentao/config.example.json)
+- [`DESIGN.md`](./DESIGN.md)
+- [`TASKS.md`](./TASKS.md)
+- [`SKILL.md`](./skills/zentao/SKILL.md)
+- [`config.example.json`](./config.example.json)

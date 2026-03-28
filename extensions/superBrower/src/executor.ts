@@ -17,7 +17,7 @@ export async function createSuperBrowerSession(
     const browser = await chromium.connectOverCDP(config.cdpUrl, {
       timeout: config.connectTimeoutMs,
     });
-    const context = browser.contexts[0] ?? (await browser.newContext());
+    const context = browser.contexts()[0] ?? (await browser.newContext());
     const page = context.pages()[0] ?? (await context.newPage());
     page.setDefaultTimeout(config.actionTimeoutMs);
     attachDiagnostics(page, diagnostics);
@@ -165,7 +165,7 @@ async function captureResponseDetails(
   response: Response,
   responses: SuperBrowerSession["diagnostics"]["responses"],
 ) {
-  const headers = await response.allHeaders().catch(() => ({}));
+  const headers = await response.allHeaders().catch(() => ({}) as Record<string, string>);
   const contentType = headers["content-type"];
   const record: (typeof responses)[number] = {
     status: response.status(),

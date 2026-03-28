@@ -185,7 +185,7 @@ async function putObject(
       "x-oss-object-acl": "public-read",
       "Content-Length": String(buffer.length),
     },
-    body: buffer,
+    body: new Uint8Array(buffer),
   });
 
   if (!response.ok) {

@@ -131,7 +131,7 @@ Suggested plugin config:
 
 ```json
 {
-  "baseUrl": "https://chandao.cdyzyc.com",
+  "baseUrl": "https://chandao.example.com",
   "apiVersion": "v1",
   "account": "zhongle",
   "password": "env:ZENTAO_PASSWORD",

@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import type { PluginLogger } from "openclaw/plugin-sdk";
+import type { PluginLogger } from "../api.js";
 import type { MysqlReadonlyConfig } from "./config-schema.js";
 
 export type MysqlReadonlyClient = {

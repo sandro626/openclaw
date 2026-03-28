@@ -4,7 +4,7 @@ import { normalizePlannerStepsForTest } from "./planner.js";
 
 const profile: SuperBrowerSiteProfile = {
   id: "bmsys-test",
-  urlPatterns: ["https://bmsys-test.cdyzyc.com/*"],
+  urlPatterns: ["https://portal.example.com/*"],
   fieldConfigs: [
     { name: "username", selectors: ["input[name='username']"] },
     { name: "password", selectors: ["input[name='password']"] },

@@ -1,12 +1,18 @@
 ---
 name: browser-use
-description: "使用 AI 控制浏览器执行自动化任务。用于：(1) 网页抓取和数据提取 (2) 自动填写表单 (3) 网站操作和导航 (4) 截图和内容获取。需要服务器上安装 browser-use-cli 工具。"
+description: "使用外部 browser-use-cli 执行浏览器自动化任务。适合快速网页抓取、表单填写和临时导航任务。需要当前 runtime 环境已安装 browser-use-cli。"
 metadata: { "openclaw": { "emoji": "🌐", "requires": { "anyBins": ["browser-use-cli"] } } }
 ---
 
 # Browser-Use 浏览器自动化
 
-使用 AI 控制浏览器执行自动化任务。
+使用外部 `browser-use-cli` 控制浏览器执行自动化任务。
+
+定位说明：
+
+- 这是一个外部 CLI wrapper，不是 OpenClaw 内置浏览器 runtime
+- 通用浏览器 runtime / 网关能力优先使用内置 `browser` 插件
+- 需要稳定的站点登录、OTP、auth-state 诊断时，优先考虑 `superBrower`
 
 ## 功能
 
@@ -27,7 +33,7 @@ browser-use-cli "你的任务描述"
 ### 指定模型
 
 ```bash
-# 使用 MiniMax M2.5（默认，更快更便宜）
+# 使用 MiniMax
 browser-use-cli "访问百度搜索 OpenClaw" -m minimax
 
 # 使用 GLM-4.7
@@ -83,17 +89,17 @@ browser-use-cli "访问某电商网站，搜索'笔记本电脑'，获取前5个
 
 ## 注意事项
 
-1. **服务器环境**: 仅在服务器 (8.155.165.162) 上可用
-2. **Headless 模式**: 浏览器在无头模式下运行
-3. **超时限制**: 默认最大 10 个操作步骤
-4. **视觉支持**: MiniMax 模型支持视觉，GLM 不支持
+1. **runtime 依赖**: 仅在已安装 `browser-use-cli` 的运行环境可用
+2. **Headless 模式**: 浏览器通常在无头模式下运行
+3. **步骤限制**: 默认适合短任务，不适合长链路稳定编排
+4. **职责边界**: 需要可复用站点 profile、OTP 或登录诊断时，优先使用 `superBrower`
 
 ## 模型选择
 
-| 模型         | 优点                   | 缺点       |
-| ------------ | ---------------------- | ---------- |
-| MiniMax M2.5 | 更快、更便宜、支持视觉 | -          |
-| GLM-4.7      | 备选方案               | 不支持视觉 |
+| 模型    | 优点               | 缺点         |
+| ------- | ------------------ | ------------ |
+| MiniMax | 推荐默认、支持视觉 | 依赖环境配置 |
+| GLM-4.7 | 备选方案           | 不支持视觉   |
 
 ## 故障排查
 
@@ -107,7 +113,7 @@ which browser-use-cli
 ### Chrome 未安装
 
 ```bash
-ls /root/.cache/puppeteer/chrome/
+ls "${HOME}/.cache/puppeteer/chrome/"
 ```
 
 ### Python 环境问题

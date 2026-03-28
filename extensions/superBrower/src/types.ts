@@ -1,5 +1,5 @@
-import type { PluginLogger } from "openclaw/plugin-sdk";
 import type { Browser, Page } from "playwright-core";
+import type { PluginLogger } from "../api.js";
 import type { SuperBrowerConfig, SuperBrowerSiteProfile } from "./config-schema.js";
 
 export type SuperBrowerRuntime = {

@@ -6,7 +6,7 @@
  * 文档: https://developer.work.weixin.qq.com/document/path/100719
  */
 
-import type { ClawdbotConfig } from "openclaw/plugin-sdk";
+import type { OpenClawConfig } from "../api.js";
 
 /**
  * Mention target for robot replies
@@ -29,7 +29,7 @@ export type RobotInfo = {
 /**
  * Build a mapping from robot name to robot config
  */
-export function buildRobotNameMap(cfg: ClawdbotConfig): Map<string, RobotInfo> {
+export function buildRobotNameMap(cfg: OpenClawConfig): Map<string, RobotInfo> {
   const map = new Map<string, RobotInfo>();
   const robots = (cfg.channels?.wecom as any)?.robots || {};
 
@@ -54,7 +54,7 @@ export function buildRobotNameMap(cfg: ClawdbotConfig): Map<string, RobotInfo> {
 /**
  * Build a mapping from accountId to robot config
  */
-export function buildAccountIdToRobotMap(cfg: ClawdbotConfig): Map<string, RobotInfo> {
+export function buildAccountIdToRobotMap(cfg: OpenClawConfig): Map<string, RobotInfo> {
   const map = new Map<string, RobotInfo>();
   const robots = (cfg.channels?.wecom as any)?.robots || {};
 
@@ -76,7 +76,7 @@ export function buildAccountIdToRobotMap(cfg: ClawdbotConfig): Map<string, Robot
 /**
  * Get robot info by name
  */
-export function getRobotInfoByName(cfg: ClawdbotConfig, name: string): RobotInfo | undefined {
+export function getRobotInfoByName(cfg: OpenClawConfig, name: string): RobotInfo | undefined {
   const nameMap = buildRobotNameMap(cfg);
   return nameMap.get(name) || nameMap.get(name.toLowerCase());
 }
@@ -85,7 +85,7 @@ export function getRobotInfoByName(cfg: ClawdbotConfig, name: string): RobotInfo
  * Get robot info by accountId
  */
 export function getRobotInfoByAccountId(
-  cfg: ClawdbotConfig,
+  cfg: OpenClawConfig,
   accountId: string,
 ): RobotInfo | undefined {
   const accountMap = buildAccountIdToRobotMap(cfg);
@@ -101,7 +101,7 @@ export function getRobotInfoByAccountId(
  */
 export function parseRobotMentionsFromText(
   text: string,
-  cfg: ClawdbotConfig,
+  cfg: OpenClawConfig,
 ): RobotMentionTarget[] {
   const targets: RobotMentionTarget[] = [];
   const robotNameMap = buildRobotNameMap(cfg);
@@ -193,7 +193,7 @@ export function buildRobotResponseWithMentions(
  */
 export function resolveMentionsFromResponse(
   responseText: string,
-  cfg: ClawdbotConfig,
+  cfg: OpenClawConfig,
 ): RobotMentionTarget[] {
   return parseRobotMentionsFromText(responseText, cfg);
 }
@@ -201,7 +201,7 @@ export function resolveMentionsFromResponse(
 /**
  * Get robotKey for a given accountId
  */
-export function getRobotKeyByAccountId(cfg: ClawdbotConfig, accountId: string): string | undefined {
+export function getRobotKeyByAccountId(cfg: OpenClawConfig, accountId: string): string | undefined {
   const info = getRobotInfoByAccountId(cfg, accountId);
   return info?.robotKey;
 }

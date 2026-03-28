@@ -1,4 +1,4 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "./api.js";
 import { superBrowerConfigSchema } from "./src/config-schema.js";
 import { createSuperBrowerRuntime } from "./src/runtime.js";
 import { createSuperBrowserTool } from "./src/tool.js";

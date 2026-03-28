@@ -1,6 +1,12 @@
-# WeCom (企业微信) Plugin for Clawdbot
+# WeCom (企业微信) Plugin for OpenClaw
 
-企业微信 (WeCom) 应用消息推送集成插件，将 Clawdbot 接入企业微信工作台。
+当前仓库状态：
+
+- `extensions/wecom/` 当前作为上游对照与兼容基线保留
+- 默认运行时装配会优先加载 `overlay/extensions/wecom/`
+- 如果后续 overlay 分叉收敛回 root，应同步移除 `plugins.load.paths` 中的 overlay 路径
+
+企业微信 (WeCom) 应用消息推送集成插件，将 OpenClaw 接入企业微信工作台。
 
 ## 功能特性
 
@@ -32,10 +38,10 @@
 3. 设置 **EncodingAESKey** (随机生成 43 位字符)
 4. 设置 **接收消息 URL**:
    ```
-   https://your-gateway-domain.com/wecom/webhook
+   https://gateway.example.com/wecom/webhook
    ```
 
-### 3. 配置 Clawdbot
+### 3. 配置 OpenClaw
 
 ```json5
 {
@@ -53,7 +59,7 @@
       agentSecret: "your_agent_secret_here",
       token: "wecom_token_2024",
       encodingAESKey: "your_encoding_aes_key_here_43_chars",
-      webhookUrl: "https://your-gateway-domain.com/wecom/webhook",
+      webhookUrl: "https://gateway.example.com/wecom/webhook",
       webhookPath: "/wecom/webhook",
       dmPolicy: "allowlist",
       allowFrom: ["zhangsan", "lisi"],
@@ -67,7 +73,7 @@
 ### 4. 启动 Gateway
 
 ```bash
-clawdbot gateway
+openclaw gateway
 ```
 
 ## 配置说明
@@ -140,7 +146,7 @@ groupPolicy: "open"
 您的 WeCom 用户 ID: zhangsan
 配对代码: ABC123
 请使用以下命令批准:
-clawdbot pairing approve wecom ABC123
+openclaw pairing approve wecom ABC123
 ```
 
 批准后用户可以正常使用。
@@ -192,7 +198,7 @@ clawdbot pairing approve wecom ABC123
 
 ### 消息未接收
 
-1. 检查 Gateway 日志: `clawdbot logs --follow`
+1. 检查 Gateway 日志: `openclaw logs --follow`
 2. 验证 Webhook URL 可访问性
 3. 确认 token 和 encodingAESKey 正确
 4. 检查企业微信应用是否启用
@@ -214,7 +220,7 @@ clawdbot pairing approve wecom ABC123
 - [企业微信 API 文档](https://developer.work.weixin.qq.com/document/path/90665)
 - [消息推送](https://developer.work.weixin.qq.com/document/path/90668)
 - [应用管理](https://work.weixin.qq.com/)
-- [Clawdbot 插件文档](/plugins)
+- [OpenClaw 插件文档](https://docs.openclaw.ai/tools/plugin)
 
 ## 许可证
 

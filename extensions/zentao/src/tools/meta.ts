@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
-import type { AnyAgentTool } from "openclaw/plugin-sdk";
-import { stringEnum } from "../../../../src/agents/schema/typebox.js";
+import { stringEnum } from "../../api.js";
+import type { AnyAgentTool } from "../../api.js";
 import { zentaoErrorResult, zentaoJsonResult } from "../result.js";
 import type { ZentaoRuntime, ZentaoToolResult } from "../types.js";
 

@@ -7,4 +7,4 @@ description: 使用只读 MySQL 用户查询业务数据库。适合查询表结
 
 This plugin-local skill is a thin wrapper. The canonical shared skill lives at:
 
-- [`skills/mysql-readonly/SKILL.md`](/home/zhongle/dev/openclaw-main/skills/mysql-readonly/SKILL.md)
+- `overlay/skills/mysql-readonly/SKILL.md`

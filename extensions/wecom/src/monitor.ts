@@ -4,14 +4,14 @@
  * 支持应用消息和智能机器人消息
  */
 
+import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ClawdbotConfig, MarkdownTableMode } from "openclaw/plugin-sdk";
+import type { MarkdownTableMode, OpenClawConfig } from "../api.js";
 import {
   sendMessage,
   getAccessToken,
-  clearAccessTokenCache,
   uploadMedia,
   sendImageMessage,
   sendFileMessage,
@@ -21,7 +21,7 @@ import {
   sendTextCardMessage,
 } from "./api.js";
 import { processBotMentions, parseMentionsFromText } from "./bot-forward.js";
-import { createWeComCrypto, WeComCrypto } from "./crypto.js";
+import { createWeComCrypto } from "./crypto.js";
 import { isOSSConfigured, uploadBufferToOSS } from "./oss.js";
 import { getWeComRuntime } from "./runtime.js";
 import type {
@@ -43,7 +43,7 @@ export type WeComRuntimeEnv = {
 
 export type WeComMonitorOptions = {
   account: ResolvedWeComAccount;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: WeComRuntimeEnv;
   abortSignal: AbortSignal;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
@@ -54,6 +54,13 @@ export type WeComMonitorResult = {
 };
 
 type WeComCoreRuntime = ReturnType<typeof getWeComRuntime>;
+
+function computeWeComSignature(...args: string[]): string {
+  return crypto
+    .createHash("sha1")
+    .update([...args].sort().join(""))
+    .digest("hex");
+}
 
 /**
  * 解析 XML 消息（企业微信解密后的消息是 XML 格式）
@@ -253,7 +260,7 @@ const ROBOT_NAME_TO_AGENT_MAP: Record<string, string> = {
  */
 function parseRobotMentions(
   text: string,
-  config: ClawdbotConfig,
+  config: OpenClawConfig,
 ): Array<{ raw: string; agentId: string; accountId: string }> {
   const mentions: Array<{ raw: string; agentId: string; accountId: string }> = [];
 
@@ -408,7 +415,7 @@ async function processRobotMessage(
     channel: "wecom-bot",
     accountId: account.accountId,
     peer: {
-      kind: isGroup ? "group" : "dm",
+      kind: isGroup ? "group" : "direct",
       id: chatId,
     },
   });
@@ -552,7 +559,6 @@ ${text}`;
     // 异步触发子代理，不阻塞CEO的处理
     processBotMentions({
       cfg: config,
-      runtime,
       text, // 使用原始消息文本
       currentAgentId: route.agentId,
       currentAccountId: account.accountId,
@@ -664,7 +670,6 @@ ${text}`;
     );
     await processBotMentions({
       cfg: config,
-      runtime,
       text: agentReplyText,
       currentAgentId: route.agentId,
       currentAccountId: account.accountId,
@@ -846,7 +851,7 @@ async function readXmlBody(
 type WebhookTarget = {
   account: ResolvedWeComAccount;
   agentId: number;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: WeComRuntimeEnv;
   core: WeComCoreRuntime;
   token: string;
@@ -939,7 +944,7 @@ export async function handleWeComWebhookRequest(
     const valid = crypto.verifySignature(msg_signature, timestamp, nonce, echostr);
     if (!valid) {
       // 签名验证失败 - 记录详细日志
-      const computedSignature = (crypto as any).sha1Sort(target.token, timestamp, nonce, echostr);
+      const computedSignature = computeWeComSignature(target.token, timestamp, nonce, echostr);
       console.error("[WeCom URL验证失败] 签名不匹配:", {
         received: msg_signature,
         computed: computedSignature,
@@ -1242,6 +1247,7 @@ async function processMessage(
           const { code, created } = await core.channel.pairing.upsertPairingRequest({
             channel: "wecom",
             id: senderId,
+            accountId: account.accountId,
             meta: {},
           });
 
@@ -1261,7 +1267,7 @@ async function processMessage(
     channel: "wecom",
     accountId: account.accountId,
     peer: {
-      kind: isGroup ? "group" : "dm",
+      kind: isGroup ? "group" : "direct",
       id: chatId,
     },
   });
@@ -1371,7 +1377,7 @@ async function deliverWeComReply(params: {
   chatId: string;
   runtime: WeComRuntimeEnv;
   core: WeComCoreRuntime;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   tableMode?: MarkdownTableMode;
 }): Promise<void> {
@@ -1549,19 +1555,3 @@ async function deliverWeComReply(params: {
     }
   }
 }
-
-/**
- * 扩展 WeComCrypto 类添加 sha1Sort 方法
- */
-declare module "./crypto.js" {
-  interface WeComCrypto {
-    sha1Sort(...args: string[]): string;
-  }
-}
-
-// Monkey patch to add sha1Sort
-const originalCreateWeComCrypto = createWeComCrypto;
-(WeComCrypto.prototype as any).sha1Sort = function (...args: string[]): string {
-  const sorted = args.sort().join("");
-  return require("node:crypto").createHash("sha1").update(sorted).digest("hex");
-};

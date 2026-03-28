@@ -1,4 +1,4 @@
-import type { PluginLogger } from "openclaw/plugin-sdk";
+import type { PluginLogger } from "../api.js";
 import type { ZentaoConfig, ZentaoCredential } from "./config-schema.js";
 
 export type ZentaoWriteMode = ZentaoConfig["mode"];

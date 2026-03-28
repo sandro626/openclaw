@@ -5,7 +5,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ClawdbotConfig, MarkdownTableMode } from "openclaw/plugin-sdk";
+import type { MarkdownTableMode, OpenClawConfig } from "../api.js";
 import { getWeComRuntime } from "./runtime.js";
 import type { WeComRobotConfig, WeComRobotMessage, WeComRobotResponse } from "./types.js";
 
@@ -23,7 +23,7 @@ export type WeComRobotTarget = {
     enabled: boolean;
     config: WeComRobotConfig;
   };
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: WeComRuntimeEnv;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
 };
@@ -382,7 +382,7 @@ async function deliverRobotReply(params: {
   runtime: WeComRuntimeEnv;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   tableMode?: MarkdownTableMode;
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
 }): Promise<void> {
   const { payload, responseUrl, runtime, statusSink, tableMode, config } = params;
   const core = getWeComRuntime();
@@ -458,7 +458,7 @@ async function deliverRobotReply(params: {
  */
 async function dispatchRobotStreamReply(params: {
   ctx: any;
-  cfg: ClawdbotConfig;
+  cfg: OpenClawConfig;
   responseUrl: string;
   runtime: WeComRuntimeEnv;
   core: WeComCoreRuntime;

@@ -7,19 +7,9 @@ description: |
 
 # Zentao Skill
 
-This extension ships the `zentao` skill, but the canonical skill definition now
-lives in the shared top-level skills directory so every robot can use the same
-instructions.
+This extension ships the `zentao` skill in-package at:
 
-Use the shared version here:
+- `extensions/zentao/skills/zentao/SKILL.md`
 
-- [`skills/zentao/SKILL.md`](/home/zhongle/dev/openclaw-main/skills/zentao/SKILL.md)
-
-This extension-local file is intentionally kept as a thin wrapper to avoid
-drift between:
-
-- the plugin-bundled skill
-- the global reusable skill
-
-If you update the Zentao workflow, examples, or protocol notes, update the
-shared skill first and keep this file minimal.
+If you update the Zentao workflow, examples, or protocol notes, keep the
+corresponding overlay copy aligned when that fork is in use.

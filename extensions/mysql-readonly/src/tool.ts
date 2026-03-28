@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
-import type { AnyAgentTool, PluginLogger } from "openclaw/plugin-sdk";
-import { stringEnum } from "../../../src/agents/schema/typebox.js";
+import { stringEnum } from "../api.js";
+import type { AnyAgentTool, PluginLogger } from "../api.js";
 import { createMysqlReadonlyClient } from "./client.js";
 import type { MysqlReadonlyConfig } from "./config-schema.js";
 import { MysqlReadonlyError } from "./errors.js";
@@ -107,9 +107,9 @@ async function listTables(
 
   const allowedTables = new Set(config.allowedTables.map((table) => table.toLowerCase()));
   const rows = result.rows.filter((row) =>
-    Object.values(row).some(
-      (value) => typeof value === "string" && allowedTables.has(value.toLowerCase()),
-    ),
+    Object.values(
+      typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {},
+    ).some((value) => typeof value === "string" && allowedTables.has(value.toLowerCase())),
   );
 
   return {

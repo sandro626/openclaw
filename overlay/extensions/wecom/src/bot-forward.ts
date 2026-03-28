@@ -8,8 +8,7 @@
  * and uses OpenClaw's Subagent mechanism to invoke the target bot's agent.
  */
 
-import type { ClawdbotConfig, RuntimeEnv } from "openclaw/plugin-sdk";
-import { callGateway } from "openclaw/plugin-sdk";
+import { callGateway, type OpenClawConfig, type RuntimeEnv } from "../api.js";
 
 /**
  * Mention target info
@@ -24,7 +23,7 @@ export type WeComMentionTarget = {
 /**
  * Build a mapping from accountId to agentId based on bindings configuration.
  */
-export function buildAccountIdToAgentIdMap(cfg: ClawdbotConfig): Map<string, string> {
+export function buildAccountIdToAgentIdMap(cfg: OpenClawConfig): Map<string, string> {
   const map = new Map<string, string>();
   const bindings = cfg.bindings ?? [];
 
@@ -50,7 +49,7 @@ export function buildAccountIdToAgentIdMap(cfg: ClawdbotConfig): Map<string, str
  * Build a mapping from robot name to accountId from WeCom config.
  * Supports both 'robots' and 'accounts' configurations.
  */
-export function buildRobotNameToAccountIdMap(cfg: ClawdbotConfig): Map<string, string> {
+export function buildRobotNameToAccountIdMap(cfg: OpenClawConfig): Map<string, string> {
   const map = new Map<string, string>();
   const wecomConfig = (cfg.channels?.wecom as any) || {};
 
@@ -90,7 +89,7 @@ export function buildRobotNameToAccountIdMap(cfg: ClawdbotConfig): Map<string, s
  * Supports both 'robots' and 'accounts' configurations.
  */
 export function buildRobotNameToInfoMap(
-  cfg: ClawdbotConfig,
+  cfg: OpenClawConfig,
 ): Map<string, { accountId: string; robotKey: string; name: string }> {
   const map = new Map<string, { accountId: string; robotKey: string; name: string }>();
   const wecomConfig = (cfg.channels?.wecom as any) || {};
@@ -135,7 +134,7 @@ export function buildRobotNameToInfoMap(
 /**
  * Build a mapping from agentId to accountIds from bindings.
  */
-export function buildAgentIdToAccountIdsMap(cfg: ClawdbotConfig): Map<string, string[]> {
+export function buildAgentIdToAccountIdsMap(cfg: OpenClawConfig): Map<string, string[]> {
   const map = new Map<string, string[]>();
   const bindings = cfg.bindings ?? [];
 
@@ -164,7 +163,7 @@ export function buildAgentIdToAccountIdsMap(cfg: ClawdbotConfig): Map<string, st
  * Build dynamic keyword to agentId mapping from config.
  * Uses robot names and accountIds from configuration.
  */
-export function buildDynamicKeywordToAgentMap(cfg: ClawdbotConfig): Map<string, string> {
+export function buildDynamicKeywordToAgentMap(cfg: OpenClawConfig): Map<string, string> {
   const map = new Map<string, string>();
 
   const accountIdToAgentId = buildAccountIdToAgentIdMap(cfg);
@@ -192,7 +191,7 @@ export function buildDynamicKeywordToAgentMap(cfg: ClawdbotConfig): Map<string, 
  */
 export function parseMentionsFromText(
   text: string,
-  cfg: ClawdbotConfig,
+  cfg: OpenClawConfig,
   currentAccountId: string,
 ): WeComMentionTarget[] {
   const targets: WeComMentionTarget[] = [];
@@ -290,7 +289,7 @@ export function parseMentionsFromText(
  * Forward a message to another bot via Subagent mechanism using callGateway.
  */
 export async function forwardToBotSubagent(params: {
-  cfg: ClawdbotConfig;
+  cfg: OpenClawConfig;
   runtime?: RuntimeEnv;
   currentAgentId: string;
   currentAccountId: string;
@@ -394,7 +393,7 @@ export async function forwardToBotSubagent(params: {
  * This is the main entry point for bot-to-bot communication.
  */
 export async function processBotMentions(params: {
-  cfg: ClawdbotConfig;
+  cfg: OpenClawConfig;
   runtime?: RuntimeEnv;
   text: string;
   currentAgentId: string;

@@ -2,45 +2,45 @@
 
 ## 方式一: 本地插件 (推荐)
 
-插件已包含在 Clawdbot 主目录中，只需启用即可。
+插件已包含在 OpenClaw 工作区或部署 bundle 中，只需启用即可。
 
 ### 1. 启用插件
 
 ```bash
-clawdbot plugins enable wecom
+openclaw plugins enable wecom
 ```
 
 ### 2. 配置企业微信
 
 ```bash
-clawdbot config set channels.wecom.corpId "ww1234567890abcdef"
-clawdbot config set channels.wecom.agentId 1000002
-clawdbot config set channels.wecom.agentSecret "your_agent_secret"
-clawdbot config set channels.wecom.token "your_token"
-clawdbot config set channels.wecom.encodingAESKey "your_aes_key"
-clawdbot config set channels.wecom.webhookUrl "https://your-domain.com/wecom/webhook"
-clawdbot config set channels.wecom.webhookPath "/wecom/webhook"
+openclaw config set channels.wecom.corpId "ww1234567890abcdef"
+openclaw config set channels.wecom.agentId 1000002
+openclaw config set channels.wecom.agentSecret "your_agent_secret"
+openclaw config set channels.wecom.token "your_token"
+openclaw config set channels.wecom.encodingAESKey "your_aes_key"
+openclaw config set channels.wecom.webhookUrl "https://gateway.example.com/wecom/webhook"
+openclaw config set channels.wecom.webhookPath "/wecom/webhook"
 ```
 
 ### 3. 配置访问控制
 
 ```bash
 # 设置白名单
-clawdbot config set channels.wecom.dmPolicy "allowlist"
-clawdbot config set channels.wecom.allowFrom '["zhangsan", "lisi"]'
+openclaw config set channels.wecom.dmPolicy "allowlist"
+openclaw config set channels.wecom.allowFrom '["zhangsan", "lisi"]'
 ```
 
 ### 4. 重启 Gateway
 
 ```bash
-clawdbot gateway restart
+openclaw gateway restart
 ```
 
 ---
 
 ## 方式二: 手动配置
 
-编辑 `~/.clawdbot/clawdbot.json`:
+编辑 `~/.openclaw/openclaw.json`:
 
 ```json5
 {
@@ -59,7 +59,7 @@ clawdbot gateway restart
       agentSecret: "your_agent_secret",
       token: "your_token",
       encodingAESKey: "your_aes_key",
-      webhookUrl: "https://your-domain.com/wecom/webhook",
+      webhookUrl: "https://gateway.example.com/wecom/webhook",
       webhookPath: "/wecom/webhook",
       dmPolicy: "allowlist",
       allowFrom: ["zhangsan", "lisi"],
@@ -74,7 +74,7 @@ clawdbot gateway restart
 
 ### 1. 创建应用
 
-1. 登录 https://work.weixin.qq.com/
+1. 登录 `https://work.weixin.qq.com/`
 2. 进入 **应用管理** → **应用** → **创建应用**
 3. 填写应用信息，上传 logo
 
@@ -92,11 +92,11 @@ clawdbot gateway restart
 2. 启用 **API 接收**
 3. 配置以下参数:
 
-| 参数           | 值                                      |
-| -------------- | --------------------------------------- |
-| URL            | `https://your-domain.com/wecom/webhook` |
-| Token          | 自定义字符串 (如 `wecom_token_2024`)    |
-| EncodingAESKey | 随机生成 (43 位字符)                    |
+| 参数           | 值                                          |
+| -------------- | ------------------------------------------- |
+| URL            | `https://gateway.example.com/wecom/webhook` |
+| Token          | 自定义字符串 (如 `wecom_token_2024`)        |
+| EncodingAESKey | 随机生成 (43 位字符)                        |
 
 4. 保存配置
 
@@ -134,7 +134,7 @@ ngrok http 18789
 ### 1. 检查插件状态
 
 ```bash
-clawdbot plugins list
+openclaw plugins list
 ```
 
 应看到 `wecom` 插件已启用。
@@ -142,7 +142,7 @@ clawdbot plugins list
 ### 2. 检查渠道状态
 
 ```bash
-clawdbot channels status
+openclaw channels status
 ```
 
 应显示 WeCom 渠道配置正确。
@@ -159,15 +159,15 @@ clawdbot channels status
 
 ```bash
 # 检查插件目录
-ls -la ~/.clawdbot/extensions/wecom/
+ls -la ~/.openclaw/extensions/wecom/
 
 # 检查插件日志
-clawdbot logs --follow | grep wecom
+openclaw logs --follow | grep wecom
 ```
 
 ### Webhook 验证失败
 
-1. 检查 URL 是否可访问: `curl https://your-domain.com/wecom/webhook`
+1. 检查 URL 是否可访问: `curl https://gateway.example.com/wecom/webhook`
 2. 验证 Token 和 AES Key 配置一致
 3. 检查服务器时间: `date` (误差需 < 5 分钟)
 
@@ -181,7 +181,7 @@ clawdbot logs --follow | grep wecom
 
 ```bash
 # 重新生成并同步配置
-clawdbot config set channels.wecom.token "new_token"
+openclaw config set channels.wecom.token "new_token"
 # 同时在企业微信后台更新
 ```
 
@@ -190,6 +190,6 @@ clawdbot config set channels.wecom.token "new_token"
 ## 卸载插件
 
 ```bash
-clawdbot plugins disable wecom
-clawdbot config unset channels.wecom
+openclaw plugins disable wecom
+openclaw config unset channels.wecom
 ```

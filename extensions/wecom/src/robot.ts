@@ -5,7 +5,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ClawdbotConfig, MarkdownTableMode } from "openclaw/plugin-sdk";
+import type { MarkdownTableMode, OpenClawConfig } from "../api.js";
 import { getWeComRuntime } from "./runtime.js";
 import type { WeComRobotConfig, WeComRobotMessage, WeComRobotResponse } from "./types.js";
 
@@ -23,7 +23,7 @@ export type WeComRobotTarget = {
     enabled: boolean;
     config: WeComRobotConfig;
   };
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: WeComRuntimeEnv;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
 };
@@ -199,8 +199,8 @@ async function processRobotMessage(
 
   const chatType = message.chattype; // "single" | "group"
   const isGroup = chatType === "group";
-  const chatId = isGroup ? message.chatid : message.sender.userid;
   const senderId = message.sender.userid;
+  const chatId = isGroup ? (message.chatid ?? senderId) : senderId;
   const responseUrl = message.response_url;
 
   // 检查是否启用流式输出
@@ -222,7 +222,7 @@ async function processRobotMessage(
     channel: "wecom-robot",
     accountId: account.accountId,
     peer: {
-      kind: isGroup ? "group" : "dm",
+      kind: isGroup ? "group" : "direct",
       id: chatId,
     },
   });
@@ -382,7 +382,7 @@ async function deliverRobotReply(params: {
   runtime: WeComRuntimeEnv;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   tableMode?: MarkdownTableMode;
-  config?: ClawdbotConfig;
+  config?: OpenClawConfig;
 }): Promise<void> {
   const { payload, responseUrl, runtime, statusSink, tableMode, config } = params;
   const core = getWeComRuntime();
@@ -458,7 +458,7 @@ async function deliverRobotReply(params: {
  */
 async function dispatchRobotStreamReply(params: {
   ctx: any;
-  cfg: ClawdbotConfig;
+  cfg: OpenClawConfig;
   responseUrl: string;
   runtime: WeComRuntimeEnv;
   core: WeComCoreRuntime;
@@ -467,57 +467,27 @@ async function dispatchRobotStreamReply(params: {
 }): Promise<void> {
   const { ctx, cfg, responseUrl, runtime, core, statusSink, tableMode } = params;
 
-  // 收集流式内容
-  let accumulatedText = "";
-
-  // 使用流式分发器
-  await core.channel.reply.dispatchStreamReply({
+  // response_url 是单次回调地址，流式模式也只能在 run 结束后发送聚合后的最终回复。
+  await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
     ctx,
     cfg,
-    onChunk: async (chunk: string) => {
-      accumulatedText += chunk;
-      // 暂存但不立即发送，等待完成
-    },
-    onComplete: async () => {
-      // 流式完成，发送最终回复
-      const text = core.channel.text.convertMarkdownTables(accumulatedText, tableMode ?? "code");
-
-      if (!text.trim()) {
-        return;
-      }
-
-      try {
-        // 发送 Markdown 格式回复（智能机器人支持）
-        const response: WeComRobotResponse = {
-          msgtype: "markdown",
-          markdown: {
-            content: text,
-          },
-        };
-
-        console.error("[WeCom Robot] Sending stream reply to:", responseUrl);
-
-        const httpResponse = await fetch(responseUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(response),
+    dispatcherOptions: {
+      deliver: async (payload) => {
+        await deliverRobotReply({
+          payload,
+          responseUrl,
+          runtime,
+          statusSink,
+          tableMode,
+          config: cfg,
         });
-
-        if (!httpResponse.ok) {
-          const errorText = await httpResponse.text();
-          throw new Error(`HTTP ${httpResponse.status}: ${errorText}`);
-        }
-
-        statusSink?.({ lastOutboundAt: Date.now() });
-      } catch (err) {
+      },
+      onError: (err) => {
         runtime.error?.(`WeCom Robot stream reply failed: ${String(err)}`);
-        throw err;
-      }
+      },
     },
-    onError: (err: Error) => {
-      runtime.error?.(`WeCom Robot stream error: ${String(err)}`);
+    replyOptions: {
+      disableBlockStreaming: true,
     },
   });
 }

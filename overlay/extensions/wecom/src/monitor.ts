@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { ClawdbotConfig, MarkdownTableMode } from "openclaw/plugin-sdk";
+import type { MarkdownTableMode, OpenClawConfig } from "../api.js";
 import {
   sendMessage,
   getAccessToken,
@@ -43,7 +43,7 @@ export type WeComRuntimeEnv = {
 
 export type WeComMonitorOptions = {
   account: ResolvedWeComAccount;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: WeComRuntimeEnv;
   abortSignal: AbortSignal;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
@@ -253,7 +253,7 @@ const ROBOT_NAME_TO_AGENT_MAP: Record<string, string> = {
  */
 function parseRobotMentions(
   text: string,
-  config: ClawdbotConfig,
+  config: OpenClawConfig,
 ): Array<{ raw: string; agentId: string; accountId: string }> {
   const mentions: Array<{ raw: string; agentId: string; accountId: string }> = [];
 
@@ -846,7 +846,7 @@ async function readXmlBody(
 type WebhookTarget = {
   account: ResolvedWeComAccount;
   agentId: number;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   runtime: WeComRuntimeEnv;
   core: WeComCoreRuntime;
   token: string;
@@ -1371,7 +1371,7 @@ async function deliverWeComReply(params: {
   chatId: string;
   runtime: WeComRuntimeEnv;
   core: WeComCoreRuntime;
-  config: ClawdbotConfig;
+  config: OpenClawConfig;
   statusSink?: (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void;
   tableMode?: MarkdownTableMode;
 }): Promise<void> {

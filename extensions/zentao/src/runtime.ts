@@ -1,4 +1,4 @@
-import type { OpenClawConfig, PluginLogger } from "openclaw/plugin-sdk";
+import type { OpenClawConfig, PluginLogger } from "../api.js";
 import { createZentaoClient } from "./client.js";
 import type { ZentaoConfig, ZentaoCredential } from "./config-schema.js";
 import { ZentaoError } from "./errors.js";

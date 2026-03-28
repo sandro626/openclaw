@@ -1,6 +1,11 @@
 import type { ZentaoConfig } from "./config-schema.js";
 import { ZentaoError } from "./errors.js";
 
+type ZentaoGuardrailConfig = Pick<
+  ZentaoConfig,
+  "mode" | "allowedProducts" | "allowedProjects" | "allowedExecutions" | "writeGuards"
+>;
+
 const WRITE_ACTIONS = new Set([
   "create",
   "update",
@@ -18,7 +23,7 @@ export function isWriteAction(action: string): boolean {
   return WRITE_ACTIONS.has(action);
 }
 
-export function enforceWriteAllowed(config: ZentaoConfig, action: string) {
+export function enforceWriteAllowed(config: ZentaoGuardrailConfig, action: string) {
   if (!isWriteAction(action)) {
     return;
   }
@@ -29,7 +34,7 @@ export function enforceWriteAllowed(config: ZentaoConfig, action: string) {
 }
 
 export function enforceReasonIfRequired(
-  config: ZentaoConfig,
+  config: ZentaoGuardrailConfig,
   action: string,
   reason: string | undefined,
 ) {
@@ -43,7 +48,7 @@ export function enforceReasonIfRequired(
 }
 
 export function enforceScopeIfConfigured(
-  config: ZentaoConfig,
+  config: ZentaoGuardrailConfig,
   scope: {
     productId?: number;
     projectId?: number;

@@ -1,4 +1,4 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "./api.js";
 import { mysqlReadonlyConfigSchema } from "./src/config-schema.js";
 import { createMysqlReadonlyTool } from "./src/tool.js";
 

@@ -82,7 +82,7 @@ The current planner default is:
 
 ## Verified behavior
 
-`superBrower` has been tested end-to-end against `https://bmsys-test.cdyzyc.com/`.
+`superBrower` has been tested end-to-end against a Vben-style portal deployment.
 
 The validated login chain is:
 

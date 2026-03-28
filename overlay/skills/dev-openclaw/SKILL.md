@@ -8,50 +8,46 @@ metadata: { "openclaw": { "emoji": "🚀", "requires": { "anyBins": ["rsync", "s
 
 将本地开发的 OpenClaw 代码部署到服务器的完整流程。
 
-## 服务器信息
+## 部署变量
 
-| 配置项       | 值                                |
-| ------------ | --------------------------------- |
-| 生产服务器   | `ssh root@8.155.165.162`          |
-| Gateway 日志 | `/tmp/openclaw-gateway.log`       |
-| Gateway 端口 | `18789`                           |
-| npm 安装路径 | `/usr/lib/node_modules/openclaw/` |
-| 配置文件     | `/root/.openclaw/openclaw.json`   |
+建议先约定以下变量，再执行部署命令：
+
+| 配置项         | 示例                                                          |
+| -------------- | ------------------------------------------------------------- |
+| 部署主机       | `export OPENCLAW_DEPLOY_HOST=user@gateway-host`               |
+| 安装根目录     | `export OPENCLAW_INSTALL_ROOT=/usr/lib/node_modules/openclaw` |
+| runtime 根目录 | `export OPENCLAW_HOME=$HOME/.openclaw`                        |
+| Gateway 日志   | `export OPENCLAW_GATEWAY_LOG=/tmp/openclaw-gateway.log`       |
+| Gateway 端口   | `export OPENCLAW_GATEWAY_PORT=18789`                          |
+| 装配输出目录   | `export OPENCLAW_BUNDLE_ROOT=.artifacts/ops/prod`             |
 
 ---
 
 ## ⚠️ 关键注意事项
 
-### 1. dist 和 extensions 必须同时同步
+### 1. 现在要同步的是 core 和 overlay bundle，不是只推源码目录
 
-- **dist/** - 核心代码（配置 schema、工具实现、CLI 逻辑）
-- **extensions/** - 插件和频道扩展（wecom、feishu 等）
+- **core build** - `dist/` 等构建产物
+- **overlay bundle** - `pnpm ops:assemble` 生成的 overlay、rendered-config、manifest
 
-**只同步 dist 会导致插件找不到，配置验证失败！**
+只同步 `dist/` 或只同步 `overlay/` 都会导致运行态不完整。
 
-### 2. npm install 会覆盖 dist
+### 2. 不要再把业务扩展手工塞回 core
 
-运行 `npm i -g openclaw@latest` 会覆盖 `dist/`，但**不会覆盖** `extensions/`。
-
-执行 npm install 后，必须重新同步本地 dist。
+`overlay/extensions/*`、`overlay/skills/*` 应通过 bundle 装配和配置加载，不要再手工复制回 core 源目录。
 
 ### 3. 禁止使用 rsync --delete
 
-```bash
-# ❌ 错误 - 会删除服务器上的其他文件
-rsync -av --delete dist/ server:/path/
-
-# ✅ 正确 - 只更新，不删除
-rsync -av --no-i-r dist/ server:/path/
-```
+同以前一样，发布时不要用 `--delete` 去碰 runtime 根。
 
 ### 4. 保护服务器数据
 
 **禁止删除**以下目录：
 
-- `/root/.openclaw/agents/{agent_id}/sessions/` - 会话数据
-- `/root/.openclaw/agents/{agent_id}/memory/` - 记忆数据
-- `/root/.openclaw/agents/{agent_id}/workspace/` - 工作空间
+- `${OPENCLAW_HOME}/agents/<agentId>/sessions/` - 会话数据
+- `${OPENCLAW_HOME}/agents/<agentId>/memory/` - 记忆数据
+- `${OPENCLAW_HOME}/workspace/<agentId>/` - 工作空间
+- `${OPENCLAW_HOME}/openclaw.json` - 真实运行配置
 
 ---
 
@@ -63,63 +59,72 @@ rsync -av --no-i-r dist/ server:/path/
 pnpm build
 ```
 
-### 步骤 2: 同步 dist（核心代码）
+### 步骤 2: 生成 overlay-aware bundle
 
 ```bash
-rsync -av --no-i-r /home/zhongle/dev/openclaw-main/dist/ root@8.155.165.162:/usr/lib/node_modules/openclaw/dist/
+pnpm ops:assemble -- --output-root "$OPENCLAW_BUNDLE_ROOT" --environment prod --allow-unresolved-env
 ```
 
-### 步骤 3: 同步 extensions（插件/频道）
+### 步骤 3: 发布 core 构建产物
 
 ```bash
-rsync -av --no-i-r /home/zhongle/dev/openclaw-main/extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw/extensions/
+rsync -av --no-i-r dist/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/dist/"
 ```
 
-### 步骤 4: 重启 Gateway
+### 步骤 4: 发布 overlay bundle
 
 ```bash
-ssh root@8.155.165.162 "pkill -9 -f 'openclaw.*gateway' 2>/dev/null; sleep 2; nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-gateway.log 2>&1 &"
+rsync -av --no-i-r "$OPENCLAW_BUNDLE_ROOT"/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/.ops-bundle/"
 ```
 
-### 步骤 5: 验证部署
+### 步骤 5: 下发渲染后的配置并补种静态 workspace
 
 ```bash
-# 检查进程
-ssh root@8.155.165.162 "ps aux | grep openclaw-gateway | grep -v grep"
-
-# 检查日志
-ssh root@8.155.165.162 "tail -30 /tmp/openclaw-gateway.log"
-
-# 运行 doctor
-ssh root@8.155.165.162 "openclaw doctor"
+ssh "$OPENCLAW_DEPLOY_HOST" "install -d \"$OPENCLAW_HOME\" \"$OPENCLAW_HOME/workspace\""
+ssh "$OPENCLAW_DEPLOY_HOST" "cp \"$OPENCLAW_INSTALL_ROOT/.ops-bundle/rendered-config/openclaw.json\" \"$OPENCLAW_HOME/openclaw.json\""
+ssh "$OPENCLAW_DEPLOY_HOST" "cd \"$OPENCLAW_INSTALL_ROOT\" && pnpm ops:seed-workspaces -- --workspace-root \"$OPENCLAW_HOME/workspace\""
 ```
 
----
+### 步骤 6: 重启 Gateway
+
+```bash
+ssh "$OPENCLAW_DEPLOY_HOST" "pkill -9 -f 'openclaw.*gateway' 2>/dev/null || true; sleep 2; nohup openclaw gateway run --bind loopback --port ${OPENCLAW_GATEWAY_PORT:-18789} --force > ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log} 2>&1 &"
+```
+
+### 步骤 7: 验证部署
+
+```bash
+ssh "$OPENCLAW_DEPLOY_HOST" "ps aux | grep openclaw-gateway | grep -v grep"
+ssh "$OPENCLAW_DEPLOY_HOST" "tail -30 ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log}"
+ssh "$OPENCLAW_DEPLOY_HOST" "openclaw doctor"
+```
 
 ## 快速命令参考
 
 ### 一键部署脚本
 
 ```bash
-# 完整部署
 pnpm build && \
-rsync -av --no-i-r dist/ root@8.155.165.162:/usr/lib/node_modules/openclaw/dist/ && \
-rsync -av --no-i-r extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw/extensions/ && \
-ssh root@8.155.165.162 "pkill -9 -f 'openclaw.*gateway' 2>/dev/null; sleep 2; nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-gateway.log 2>&1 &"
+pnpm ops:assemble -- --output-root "$OPENCLAW_BUNDLE_ROOT" --environment prod --allow-unresolved-env && \
+rsync -av --no-i-r dist/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/dist/" && \
+rsync -av --no-i-r "$OPENCLAW_BUNDLE_ROOT"/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/.ops-bundle/" && \
+ssh "$OPENCLAW_DEPLOY_HOST" "cp \"$OPENCLAW_INSTALL_ROOT/.ops-bundle/rendered-config/openclaw.json\" \"$OPENCLAW_HOME/openclaw.json\"" && \
+ssh "$OPENCLAW_DEPLOY_HOST" "pkill -9 -f 'openclaw.*gateway' 2>/dev/null || true; sleep 2; nohup openclaw gateway run --bind loopback --port ${OPENCLAW_GATEWAY_PORT:-18789} --force > ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log} 2>&1 &"
 ```
 
 ### 仅更新核心代码
 
 ```bash
 pnpm build
-rsync -av --no-i-r dist/ root@8.155.165.162:/usr/lib/node_modules/openclaw/dist/
+rsync -av --no-i-r dist/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/dist/"
 # 重启 Gateway...
 ```
 
-### 仅更新扩展
+### 仅更新 overlay bundle
 
 ```bash
-rsync -av --no-i-r extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw/extensions/
+pnpm ops:assemble -- --output-root "$OPENCLAW_BUNDLE_ROOT" --environment prod --allow-unresolved-env
+rsync -av --no-i-r "$OPENCLAW_BUNDLE_ROOT"/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/.ops-bundle/"
 # 重启 Gateway...
 ```
 
@@ -130,28 +135,28 @@ rsync -av --no-i-r extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw
 ### 启动
 
 ```bash
-ssh root@8.155.165.162 "nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-gateway.log 2>&1 &"
+ssh "$OPENCLAW_DEPLOY_HOST" "nohup openclaw gateway run --bind loopback --port ${OPENCLAW_GATEWAY_PORT:-18789} --force > ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log} 2>&1 &"
 ```
 
 ### 停止
 
 ```bash
-ssh root@8.155.165.162 "pkill -9 -f 'openclaw.*gateway'"
+ssh "$OPENCLAW_DEPLOY_HOST" "pkill -9 -f 'openclaw.*gateway'"
 ```
 
 ### 查看日志
 
 ```bash
-ssh root@8.155.165.162 "tail -100 /tmp/openclaw-gateway.log"
+ssh "$OPENCLAW_DEPLOY_HOST" "tail -100 ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log}"
 # 或实时查看
-ssh root@8.155.165.162 "tail -f /tmp/openclaw-gateway.log"
+ssh "$OPENCLAW_DEPLOY_HOST" "tail -f ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log}"
 ```
 
 ### 检查状态
 
 ```bash
-ssh root@8.155.165.162 "ps aux | grep openclaw-gateway | grep -v grep"
-ssh root@8.155.165.162 "ss -tlnp | grep 18789"
+ssh "$OPENCLAW_DEPLOY_HOST" "ps aux | grep openclaw-gateway | grep -v grep"
+ssh "$OPENCLAW_DEPLOY_HOST" "ss -tlnp | grep ${OPENCLAW_GATEWAY_PORT:-18789}"
 ```
 
 ---
@@ -222,12 +227,13 @@ provider?: "brave" | "perplexity" | "grok" | "gemini" | "kimi" | "tavily" | "bai
 
 ### "unknown channel id: xxx"
 
-**原因**: 本地 dist 同步后，extensions 目录未同步，导致频道未注册。
+**原因**: core 已更新，但 overlay bundle 未一起发布，导致插件或频道扩展未加载。
 
 **解决**:
 
 ```bash
-rsync -av --no-i-r extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw/extensions/
+pnpm ops:assemble -- --output-root "$OPENCLAW_BUNDLE_ROOT" --environment prod --allow-unresolved-env
+rsync -av --no-i-r "$OPENCLAW_BUNDLE_ROOT"/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/.ops-bundle/"
 ```
 
 ### "Invalid input (allowed: ...)"
@@ -262,18 +268,19 @@ rsync -av --no-i-r extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw
 如果部署出现问题，恢复 npm 版本：
 
 ```bash
-ssh root@8.155.165.162 "sudo npm i -g openclaw@latest"
+ssh "$OPENCLAW_DEPLOY_HOST" "sudo npm i -g openclaw@latest"
 
-# 重新同步 extensions
-rsync -av --no-i-r extensions/ root@8.155.165.162:/usr/lib/node_modules/openclaw/extensions/
+# 重新发布当前稳定 bundle
+pnpm ops:assemble -- --output-root "$OPENCLAW_BUNDLE_ROOT" --environment prod --allow-unresolved-env
+rsync -av --no-i-r "$OPENCLAW_BUNDLE_ROOT"/ "$OPENCLAW_DEPLOY_HOST:$OPENCLAW_INSTALL_ROOT/.ops-bundle/"
 
 # 重启 Gateway
-ssh root@8.155.165.162 "pkill -9 -f 'openclaw.*gateway' 2>/dev/null; sleep 2; nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-gateway.log 2>&1 &"
+ssh "$OPENCLAW_DEPLOY_HOST" "pkill -9 -f 'openclaw.*gateway' 2>/dev/null || true; sleep 2; nohup openclaw gateway run --bind loopback --port ${OPENCLAW_GATEWAY_PORT:-18789} --force > ${OPENCLAW_GATEWAY_LOG:-/tmp/openclaw-gateway.log} 2>&1 &"
 ```
 
 ---
 
 ## 相关文档
 
-- [部署保护规则](/docs/operations/DEPLOY-protection.md)
-- [Agent Memory](~/.claude/projects/-home-zhongle-dev-openclaw-main/memory/MEMORY.md)
+- `docs/operations/deployment-assembly.md`
+- `docs/operations/deploy-protection.md`

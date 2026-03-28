@@ -6,17 +6,23 @@
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import {
   buildChannelConfigSchema,
   DmPolicySchema,
   GroupPolicySchema,
   DEFAULT_ACCOUNT_ID,
+  normalizePluginHttpPath,
+  registerPluginHttpRoute,
   type ChannelPlugin,
-  type ClawdbotConfig,
-} from "openclaw/plugin-sdk";
-import { z } from "zod";
+  type OpenClawConfig,
+} from "../api.js";
 import { clearAccessTokenCache } from "./api.js";
-import { registerWeComWebhookTarget, DEFAULT_MEDIA_MAX_MB } from "./monitor.js";
+import {
+  handleWeComWebhookRequest,
+  registerWeComWebhookTarget,
+  DEFAULT_MEDIA_MAX_MB,
+} from "./monitor.js";
 import { setOSSConfig, isOSSConfigured, uploadUrlToOSS, uploadBufferToOSS } from "./oss.js";
 import { registerWeComRobotWebhookTarget } from "./robot.js";
 import { getWeComRuntime } from "./runtime.js";
@@ -25,6 +31,7 @@ import type {
   WeComRobotConfig,
   ResolvedWeComAccount,
   WeComMessageType,
+  WeDriveAclItem,
 } from "./types.js";
 
 // WeCom channel metadata
@@ -129,8 +136,8 @@ const WeComConfigSchema = z
  * 解析 WeCom 账户配置
  */
 function resolveWeComAccount(params: {
-  cfg: ClawdbotConfig;
-  accountId?: string;
+  cfg: OpenClawConfig;
+  accountId?: string | null;
 }): ResolvedWeComAccount {
   const { cfg, accountId } = params;
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
@@ -165,10 +172,210 @@ function resolveWeComAccount(params: {
   };
 }
 
+function readRobotDeliveryHints(ctx: Record<string, unknown>): {
+  robotResponseUrl?: string;
+  robotSenderId?: string;
+  robotChatId?: string;
+} {
+  return {
+    robotResponseUrl: typeof ctx.robotResponseUrl === "string" ? ctx.robotResponseUrl : undefined,
+    robotSenderId: typeof ctx.robotSenderId === "string" ? ctx.robotSenderId : undefined,
+    robotChatId: typeof ctx.robotChatId === "string" ? ctx.robotChatId : undefined,
+  };
+}
+
+function createGatewayStatusSink(ctx: {
+  getStatus: () => { accountId: string } & Record<string, unknown>;
+  setStatus: (next: { accountId: string } & Record<string, unknown>) => void;
+}): (patch: { lastInboundAt?: number; lastOutboundAt?: number }) => void {
+  return (patch) => {
+    ctx.setStatus({
+      ...ctx.getStatus(),
+      ...patch,
+    });
+  };
+}
+
+type AccountScopedParams = {
+  accountId?: string | null;
+  cfg: OpenClawConfig;
+};
+
+type WeComNewsArticleInput = {
+  title?: string;
+  description?: string;
+  url?: string;
+  picurl?: string;
+  picUrl?: string;
+};
+
+type WeComExtendedOutbound = NonNullable<ChannelPlugin<ResolvedWeComAccount>["outbound"]> & {
+  sendTextCard: (
+    params: AccountScopedParams & {
+      to: string;
+      title?: string;
+      description?: string;
+      url?: string;
+      buttonText?: string;
+    },
+  ) => Promise<unknown>;
+  sendNews: (
+    params: AccountScopedParams & {
+      to: string;
+      articles?: WeComNewsArticleInput[];
+    },
+  ) => Promise<unknown>;
+  sendMarkdown: (
+    params: AccountScopedParams & {
+      to: string;
+      content?: string;
+    },
+  ) => Promise<unknown>;
+  wedriveGetSpaces: (params: AccountScopedParams & { userId: string }) => Promise<unknown>;
+  wedriveGetFileList: (
+    params: AccountScopedParams & {
+      userId: string;
+      spaceId: string;
+      fatherId?: string;
+      sortType?: 1 | 2 | 3 | 4;
+      start?: number;
+      limit?: number;
+    },
+  ) => Promise<unknown>;
+  wedriveGetFileInfo: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+    },
+  ) => Promise<unknown>;
+  wedriveUploadFile: (
+    params: AccountScopedParams & {
+      userId: string;
+      spaceId: string;
+      fatherId: string;
+      fileName: string;
+      fileContent: string;
+    },
+  ) => Promise<unknown>;
+  wedriveDownloadFile: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+    },
+  ) => Promise<unknown>;
+  wedriveCreateFolder: (
+    params: AccountScopedParams & {
+      userId: string;
+      spaceId: string;
+      fatherId: string;
+      folderName: string;
+    },
+  ) => Promise<unknown>;
+  wedriveRenameFile: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+      newName: string;
+    },
+  ) => Promise<unknown>;
+  wedriveMoveFiles: (
+    params: AccountScopedParams & {
+      userId: string;
+      fatherId: string;
+      replace?: boolean;
+      fileIds: string[];
+    },
+  ) => Promise<unknown>;
+  wedriveDeleteFiles: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileIds: string[];
+    },
+  ) => Promise<unknown>;
+  wedriveShareFile: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+    },
+  ) => Promise<unknown>;
+  wedriveSetFileAuth: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+      auth?: number;
+      authSuccessor?: number;
+    },
+  ) => Promise<unknown>;
+  wedriveAddFileAcl: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+      aclList: WeDriveAclItem[];
+    },
+  ) => Promise<unknown>;
+  wedriveDelFileAcl: (
+    params: AccountScopedParams & {
+      userId: string;
+      fileId: string;
+      authInfo: Array<{ userid?: string; departmentid?: number }>;
+    },
+  ) => Promise<unknown>;
+  getDepartmentList: (
+    params: AccountScopedParams & {
+      departmentId?: string;
+    },
+  ) => Promise<unknown>;
+  getUser: (
+    params: AccountScopedParams & {
+      userId: string;
+    },
+  ) => Promise<unknown>;
+  getDepartmentUsers: (
+    params: AccountScopedParams & {
+      departmentId: number;
+      fetchChild?: boolean;
+    },
+  ) => Promise<unknown>;
+  searchUser: (
+    params: AccountScopedParams & {
+      query?: string;
+      departmentId?: number;
+    },
+  ) => Promise<unknown>;
+  getUserIdByPhone: (
+    params: AccountScopedParams & {
+      mobile?: string;
+      email?: string;
+    },
+  ) => Promise<unknown>;
+  getTagList: (params: AccountScopedParams) => Promise<unknown>;
+  getTagMembers: (
+    params: AccountScopedParams & {
+      tagId: number;
+    },
+  ) => Promise<unknown>;
+  getAllUsers: (params: AccountScopedParams) => Promise<unknown>;
+  findDepartmentByName: (
+    params: AccountScopedParams & {
+      name: string;
+    },
+  ) => Promise<unknown>;
+  parseMentions: (params: { content: string }) => Promise<unknown>;
+  formatMentions: (params: { userIds: string[] }) => Promise<unknown>;
+  sendWithMentions: (
+    params: AccountScopedParams & {
+      to: string;
+      content: string;
+      mentionUserIds?: string[];
+      mentionAll?: boolean;
+    },
+  ) => Promise<unknown>;
+};
+
 /**
  * 列出所有 WeCom 账户 ID (包括应用和机器人)
  */
-function listWeComAccountIds(cfg: ClawdbotConfig): string[] {
+function listWeComAccountIds(cfg: OpenClawConfig): string[] {
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
   const ids: string[] = [];
 
@@ -205,7 +412,7 @@ function listWeComAccountIds(cfg: ClawdbotConfig): string[] {
 /**
  * 列出所有智能机器人账户 ID
  */
-function listWeComRobotAccountIds(cfg: ClawdbotConfig): string[] {
+function listWeComRobotAccountIds(cfg: OpenClawConfig): string[] {
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
   const ids: string[] = [];
 
@@ -225,7 +432,7 @@ function listWeComRobotAccountIds(cfg: ClawdbotConfig): string[] {
 /**
  * 检查账户是否为机器人账户
  */
-function isRobotAccount(cfg: ClawdbotConfig, accountId: string): boolean {
+function isRobotAccount(cfg: OpenClawConfig, accountId: string): boolean {
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
   const robots = config.robots;
   return robots ? accountId in robots : false;
@@ -234,7 +441,7 @@ function isRobotAccount(cfg: ClawdbotConfig, accountId: string): boolean {
 /**
  * 解析默认 WeCom 账户 ID
  */
-function resolveDefaultWeComAccountId(cfg: ClawdbotConfig): string {
+function resolveDefaultWeComAccountId(cfg: OpenClawConfig): string {
   const ids = listWeComAccountIds(cfg);
   return ids[0] ?? DEFAULT_ACCOUNT_ID;
 }
@@ -338,7 +545,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
         };
       }
 
-      const accounts = { ...wecomConfig.accounts };
+      const accounts = { ...(wecomConfig.accounts ?? {}) };
       delete accounts[accountId];
 
       return {
@@ -388,7 +595,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
         allowFrom: account.config.allowFrom ?? [],
         policyPath: `${basePath}dmPolicy`,
         allowFromPath: basePath,
-        approveHint: "clawdbot pairing approve wecom <code>",
+        approveHint: "openclaw pairing approve wecom <code>",
         normalizeEntry: (raw) => raw.replace(/^wecom:(user:)?/i, ""),
       };
     },
@@ -415,14 +622,15 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
 
       if (!groups) return false;
 
-      const groupConfig = groups[groupId] ?? groups["*"];
+      const groupKey = groupId ?? "*";
+      const groupConfig = groups[groupKey] ?? groups["*"];
       return groupConfig?.requireMention ?? false;
     },
   },
   messaging: {
     normalizeTarget: (target) => {
       const trimmed = target.trim();
-      if (!trimmed) return null;
+      if (!trimmed) return undefined;
       return trimmed.replace(/^wecom:(group|user):/i, "").replace(/^wecom:/i, "");
     },
     targetResolver: {
@@ -567,31 +775,369 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
       };
     },
   },
-  outbound: {
-    deliveryMode: "direct",
-    chunker: (text, limit) => getWeComRuntime().channel.text.chunkMarkdownText(text, limit),
-    textChunkLimit: 2048,
-    sendPayload: async ({
-      to,
-      payload,
-      accountId,
-      cfg,
-      robotResponseUrl,
-      robotSenderId,
-      robotChatId,
-    }) => {
-      const runtime = getWeComRuntime();
-      const account = resolveWeComAccount({ cfg, accountId });
+  outbound: (() =>
+    ({
+      deliveryMode: "direct",
+      chunker: (text, limit) => getWeComRuntime().channel.text.chunkMarkdownText(text, limit),
+      textChunkLimit: 2048,
+      sendPayload: async (ctx) => {
+        const { to, payload, accountId, cfg } = ctx;
+        const { robotResponseUrl, robotSenderId, robotChatId } = readRobotDeliveryHints(
+          ctx as Record<string, unknown>,
+        );
+        const runtime = getWeComRuntime();
+        const account = resolveWeComAccount({ cfg, accountId });
 
-      // 如果有 robotResponseUrl，尝试使用智能机器人的 response_url 回复
-      // 注意: response_url 只能使用一次，如果失败需要fallback到应用API发送私聊
-      if (robotResponseUrl) {
-        console.error("[WeCom] Using robotResponseUrl for delivery");
-        const text = payload.text ?? "";
-        let lastMessageId = "";
-        let responseUrlFailed = false;
+        // 如果有 robotResponseUrl，尝试使用智能机器人的 response_url 回复
+        // 注意: response_url 只能使用一次，如果失败需要fallback到应用API发送私聊
+        if (robotResponseUrl) {
+          console.error("[WeCom] Using robotResponseUrl for delivery");
+          const text = payload.text ?? "";
+          let lastMessageId = "";
+          let responseUrlFailed = false;
 
-        if (text.trim()) {
+          if (text.trim()) {
+            const tableMode = runtime.channel.text.resolveMarkdownTableMode({
+              cfg,
+              channel: "wecom",
+              accountId: accountId ?? undefined,
+            });
+            const convertedText = runtime.channel.text.convertMarkdownTables(
+              text,
+              tableMode ?? "code",
+            );
+            const chunkMode = runtime.channel.text.resolveChunkMode(cfg, "wecom", accountId);
+            const chunks = runtime.channel.text.chunkMarkdownTextWithMode(
+              convertedText,
+              2048,
+              chunkMode,
+            );
+
+            for (const chunk of chunks) {
+              const response = await fetch(robotResponseUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  msgtype: "markdown",
+                  markdown: { content: chunk },
+                }),
+              });
+              const responseText = await response.text();
+              console.error(
+                `[WeCom] Robot response_url delivery response: ${response.status} ${responseText}`,
+              );
+
+              // Parse response to check for WeCom error codes
+              try {
+                const result = JSON.parse(responseText);
+                const errcode = Number(result.errcode);
+                if (errcode && errcode !== 0) {
+                  console.error(
+                    `[WeCom] Robot response_url delivery failed with errcode: ${errcode}, errmsg: ${result.errmsg}`,
+                  );
+                  // errcode 60140 = invalid response code (response_url已被使用或过期)
+                  // 需要fallback到应用API
+                  if (errcode === 60140) {
+                    console.error("[WeCom] response_url已失效(可能已被使用)，将fallback到应用API");
+                    responseUrlFailed = true;
+                    break;
+                  }
+                  throw new Error(
+                    `Robot response_url delivery failed: ${result.errmsg || errcode}`,
+                  );
+                }
+              } catch (parseErr) {
+                if (!response.ok) {
+                  throw new Error(`Robot response_url delivery failed: ${response.status}`);
+                }
+              }
+              lastMessageId = `robot-${Date.now()}`;
+            }
+          }
+
+          // 如果response_url成功，直接返回
+          if (!responseUrlFailed) {
+            return {
+              channel: "wecom",
+              messageId: lastMessageId,
+              chatId: to,
+            };
+          }
+          // 否则继续使用应用API fallback发送私聊
+          console.error("[WeCom] Falling back to application API for delivery");
+          if (robotChatId) {
+            console.error(`[WeCom] Sending to group chat via appchat API: ${robotChatId}`);
+          } else if (robotSenderId) {
+            console.error(`[WeCom] Sending private message to sender: ${robotSenderId}`);
+          }
+        }
+
+        // 使用应用 API (access_token) 发送
+        // 如果是fallback且有robotChatId，则使用appchat API发送群聊消息
+        // 如果是fallback且有robotSenderId，则发送私聊消息
+        // 注意：智能机器人的response_url只能用一次
+        // 应用API发送可能因权限问题失败，静默处理
+        const isGroupChat = Boolean(robotChatId);
+        const targetUser = isGroupChat
+          ? robotChatId!
+          : robotSenderId || to.replace(/^(user:|group:)/, "");
+
+        try {
+          const {
+            getAccessToken,
+            sendMessage,
+            sendAppchatMessage,
+            uploadMedia,
+            sendImageMessage,
+            sendFileMessage,
+            sendVideoMessage,
+            sendVoiceMessage,
+          } = await import("./api.js");
+          const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+
+          let lastMessageId = "";
+
+          // 处理媒体文件
+          const mediaUrls = payload.mediaUrls ?? [];
+          const mediaMaxMb = account.config.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB;
+          const maxBytes = mediaMaxMb * 1024 * 1024;
+
+          for (const mediaUrl of mediaUrls) {
+            try {
+              let mediaBuffer: Buffer;
+              let filename: string;
+              let contentType: string;
+
+              // 检查是否是本地文件路径
+              const isLocalFile = mediaUrl.startsWith("/") || mediaUrl.startsWith("file://");
+              const filePath = mediaUrl.startsWith("file://") ? mediaUrl.slice(7) : mediaUrl;
+
+              if (isLocalFile && existsSync(filePath)) {
+                // 从本地文件读取
+                console.error(`[WeCom] Reading local file: ${filePath}`);
+                mediaBuffer = await readFile(filePath);
+                filename = filePath.split("/").pop() || "media";
+
+                // 根据扩展名推断 MIME 类型
+                const ext = filename.includes(".") ? filename.split(".").pop()?.toLowerCase() : "";
+                const mimeTypes: Record<string, string> = {
+                  jpg: "image/jpeg",
+                  jpeg: "image/jpeg",
+                  png: "image/png",
+                  gif: "image/gif",
+                  webp: "image/webp",
+                  mp3: "audio/mpeg",
+                  wav: "audio/wav",
+                  ogg: "audio/ogg",
+                  mp4: "video/mp4",
+                  webm: "video/webm",
+                  mov: "video/quicktime",
+                  pdf: "application/pdf",
+                  txt: "text/plain",
+                  doc: "application/msword",
+                  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                  xls: "application/vnd.ms-excel",
+                  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                };
+                contentType = mimeTypes[ext || ""] || "application/octet-stream";
+              } else {
+                // 从 URL 下载
+                const mediaResponse = await fetch(mediaUrl);
+                if (!mediaResponse.ok) {
+                  console.error(`[WeCom] Failed to fetch media: ${mediaUrl}`);
+                  continue;
+                }
+
+                const contentLength = mediaResponse.headers.get("content-length");
+                if (contentLength && parseInt(contentLength, 10) > maxBytes) {
+                  console.error(`[WeCom] Media file too large: ${mediaUrl}`);
+                  continue;
+                }
+
+                mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
+                contentType =
+                  mediaResponse.headers.get("content-type") || "application/octet-stream";
+                try {
+                  filename = new URL(mediaUrl).pathname.split("/").pop() || "media";
+                } catch {
+                  filename = "media";
+                }
+              }
+
+              // 检查文件大小
+              if (mediaBuffer.length > maxBytes) {
+                console.error(`[WeCom] Media file too large: ${mediaBuffer.length} bytes`);
+                continue;
+              }
+
+              // 检测媒体类型
+              let mediaType: "image" | "voice" | "video" | "file" = "file";
+              if (contentType.startsWith("image/")) {
+                mediaType = "image";
+              } else if (contentType.startsWith("audio/")) {
+                mediaType = "voice";
+              } else if (contentType.startsWith("video/")) {
+                mediaType = "video";
+              }
+
+              // 上传到 OSS (如果配置了)
+              let ossUrl: string | undefined;
+              if (isOSSConfigured()) {
+                const ossResult = await uploadBufferToOSS(mediaBuffer, filename, contentType);
+                if (ossResult) {
+                  ossUrl = ossResult.url;
+                  console.error(`[WeCom] Media uploaded to OSS: ${ossUrl}`);
+                }
+              }
+
+              // 上传到企业微信
+              const uploadResult = await uploadMedia(accessToken, mediaType, mediaBuffer, filename);
+
+              // 发送消息
+              const sendParams = {
+                touser: to,
+                agentid: account.agentId,
+                media_id: uploadResult.mediaId,
+              };
+
+              switch (mediaType) {
+                case "image":
+                  const imgResult = await sendImageMessage(accessToken, sendParams);
+                  lastMessageId = imgResult.messageId;
+                  break;
+                case "voice":
+                  const voiceResult = await sendVoiceMessage(accessToken, sendParams);
+                  lastMessageId = voiceResult.messageId;
+                  break;
+                case "video":
+                  const videoResult = await sendVideoMessage(accessToken, {
+                    ...sendParams,
+                    title: filename,
+                  });
+                  lastMessageId = videoResult.messageId;
+                  break;
+                default:
+                  const fileResult = await sendFileMessage(accessToken, sendParams);
+                  lastMessageId = fileResult.messageId;
+              }
+
+              // 如果有 OSS URL，发送下载链接
+              if (ossUrl && mediaType === "file") {
+                const linkText = `📎 文件下载链接: ${ossUrl}`;
+                await sendMessage(accessToken, {
+                  touser: targetUser,
+                  msgtype: "text",
+                  agentid: account.agentId,
+                  text: { content: linkText },
+                  safe: 0,
+                });
+              }
+            } catch (err) {
+              console.error(`[WeCom] Error sending media ${mediaUrl}:`, err);
+            }
+          }
+
+          // 处理文本
+          const text = payload.text ?? "";
+          if (text.trim()) {
+            const tableMode = runtime.channel.text.resolveMarkdownTableMode({
+              cfg,
+              channel: "wecom",
+              accountId: accountId ?? undefined,
+            });
+            const convertedText = runtime.channel.text.convertMarkdownTables(
+              text,
+              tableMode ?? "code",
+            );
+
+            // 分块发送
+            const chunkMode = runtime.channel.text.resolveChunkMode(cfg, "wecom", accountId);
+            const chunks = runtime.channel.text.chunkMarkdownTextWithMode(
+              convertedText,
+              2048,
+              chunkMode,
+            );
+
+            for (const chunk of chunks) {
+              if (isGroupChat) {
+                // 首先尝试使用 appchat API 发送群聊消息
+                try {
+                  console.error(`[WeCom] Attempting appchat API delivery to group: ${targetUser}`);
+                  const result = await sendAppchatMessage(accessToken, {
+                    chatid: targetUser,
+                    msgtype: "text",
+                    text: { content: chunk },
+                    safe: 0,
+                  });
+                  lastMessageId = result.messageId;
+                } catch (appchatError) {
+                  // appchat API 失败（通常是权限问题：群聊由其他机器人创建）
+                  // Fallback 到私聊发送给发送者
+                  const errorMsg =
+                    appchatError instanceof Error ? appchatError.message : String(appchatError);
+                  console.error(
+                    `[WeCom] Appchat API failed (${errorMsg}), falling back to private message`,
+                  );
+
+                  if (robotSenderId) {
+                    console.error(`[WeCom] Sending private message to sender: ${robotSenderId}`);
+                    const result = await sendMessage(accessToken, {
+                      touser: robotSenderId,
+                      msgtype: "text",
+                      agentid: account.agentId,
+                      text: { content: `[群聊回复] ${chunk}` },
+                      safe: 0,
+                    });
+                    lastMessageId = result.messageId;
+                  } else {
+                    throw new Error("Appchat failed and no senderId for private message fallback");
+                  }
+                }
+              } else {
+                // 使用 message API 发送私聊消息
+                const result = await sendMessage(accessToken, {
+                  touser: targetUser,
+                  msgtype: "text",
+                  agentid: account.agentId,
+                  text: { content: chunk },
+                  safe: 0,
+                });
+                lastMessageId = result.messageId;
+              }
+            }
+          }
+
+          return {
+            channel: "wecom",
+            messageId: lastMessageId,
+            chatId: isGroupChat && robotSenderId ? `user:${robotSenderId}` : targetUser,
+          };
+        } catch (fallbackError) {
+          // 所有fallback都失败
+          console.error(`[WeCom] All fallback methods failed: ${fallbackError}`);
+          return {
+            channel: "wecom",
+            messageId: "",
+            chatId: targetUser,
+            error: "Message could not be delivered (response_url expired, all fallbacks failed)",
+          };
+        }
+      },
+      sendText: async (ctx) => {
+        const { to, text, accountId, cfg } = ctx;
+        const { robotResponseUrl, robotSenderId, robotChatId } = readRobotDeliveryHints(
+          ctx as Record<string, unknown>,
+        );
+        const runtime = getWeComRuntime();
+        const account = resolveWeComAccount({ cfg, accountId });
+
+        // 如果有 robotResponseUrl，尝试使用智能机器人的 response_url 回复
+        // 注意: response_url 只能使用一次，如果失败需要fallback到应用API发送私聊
+        if (robotResponseUrl) {
+          console.error("[WeCom] Using robotResponseUrl for text delivery");
+          let lastMessageId = "";
+          let responseUrlFailed = false;
+
           const tableMode = runtime.channel.text.resolveMarkdownTableMode({
             cfg,
             channel: "wecom",
@@ -619,7 +1165,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
             });
             const responseText = await response.text();
             console.error(
-              `[WeCom] Robot response_url delivery response: ${response.status} ${responseText}`,
+              `[WeCom] Robot response_url text delivery response: ${response.status} ${responseText}`,
             );
 
             // Parse response to check for WeCom error codes
@@ -628,7 +1174,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               const errcode = Number(result.errcode);
               if (errcode && errcode !== 0) {
                 console.error(
-                  `[WeCom] Robot response_url delivery failed with errcode: ${errcode}, errmsg: ${result.errmsg}`,
+                  `[WeCom] Robot response_url text delivery failed with errcode: ${errcode}, errmsg: ${result.errmsg}`,
                 );
                 // errcode 60140 = invalid response code (response_url已被使用或过期)
                 // 需要fallback到应用API
@@ -637,201 +1183,48 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
                   responseUrlFailed = true;
                   break;
                 }
-                throw new Error(`Robot response_url delivery failed: ${result.errmsg || errcode}`);
+                throw new Error(
+                  `Robot response_url text delivery failed: ${result.errmsg || errcode}`,
+                );
               }
             } catch (parseErr) {
               if (!response.ok) {
-                throw new Error(`Robot response_url delivery failed: ${response.status}`);
+                throw new Error(`Robot response_url text delivery failed: ${response.status}`);
               }
             }
             lastMessageId = `robot-${Date.now()}`;
           }
-        }
 
-        // 如果response_url成功，直接返回
-        if (!responseUrlFailed) {
-          return {
-            channel: "wecom",
-            messageId: lastMessageId,
-            chatId: to,
-          };
-        }
-        // 否则继续使用应用API fallback发送私聊
-        console.error("[WeCom] Falling back to application API for delivery");
-        if (robotChatId) {
-          console.error(`[WeCom] Sending to group chat via appchat API: ${robotChatId}`);
-        } else if (robotSenderId) {
-          console.error(`[WeCom] Sending private message to sender: ${robotSenderId}`);
-        }
-      }
-
-      // 使用应用 API (access_token) 发送
-      // 如果是fallback且有robotChatId，则使用appchat API发送群聊消息
-      // 如果是fallback且有robotSenderId，则发送私聊消息
-      // 注意：智能机器人的response_url只能用一次
-      // 应用API发送可能因权限问题失败，静默处理
-      const isGroupChat = Boolean(robotChatId);
-      const targetUser = isGroupChat
-        ? robotChatId!
-        : robotSenderId || to.replace(/^(user:|group:)/, "");
-
-      try {
-        const {
-          getAccessToken,
-          sendMessage,
-          sendAppchatMessage,
-          uploadMedia,
-          sendImageMessage,
-          sendFileMessage,
-          sendVideoMessage,
-          sendVoiceMessage,
-        } = await import("./api.js");
-        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-
-        let lastMessageId = "";
-
-        // 处理媒体文件
-        const mediaUrls = payload.mediaUrls ?? [];
-        const mediaMaxMb = account.config.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB;
-        const maxBytes = mediaMaxMb * 1024 * 1024;
-
-        for (const mediaUrl of mediaUrls) {
-          try {
-            let mediaBuffer: Buffer;
-            let filename: string;
-            let contentType: string;
-
-            // 检查是否是本地文件路径
-            const isLocalFile = mediaUrl.startsWith("/") || mediaUrl.startsWith("file://");
-            const filePath = mediaUrl.startsWith("file://") ? mediaUrl.slice(7) : mediaUrl;
-
-            if (isLocalFile && existsSync(filePath)) {
-              // 从本地文件读取
-              console.error(`[WeCom] Reading local file: ${filePath}`);
-              mediaBuffer = await readFile(filePath);
-              filename = filePath.split("/").pop() || "media";
-
-              // 根据扩展名推断 MIME 类型
-              const ext = filename.includes(".") ? filename.split(".").pop()?.toLowerCase() : "";
-              const mimeTypes: Record<string, string> = {
-                jpg: "image/jpeg",
-                jpeg: "image/jpeg",
-                png: "image/png",
-                gif: "image/gif",
-                webp: "image/webp",
-                mp3: "audio/mpeg",
-                wav: "audio/wav",
-                ogg: "audio/ogg",
-                mp4: "video/mp4",
-                webm: "video/webm",
-                mov: "video/quicktime",
-                pdf: "application/pdf",
-                txt: "text/plain",
-                doc: "application/msword",
-                docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                xls: "application/vnd.ms-excel",
-                xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-              };
-              contentType = mimeTypes[ext || ""] || "application/octet-stream";
-            } else {
-              // 从 URL 下载
-              const mediaResponse = await fetch(mediaUrl);
-              if (!mediaResponse.ok) {
-                console.error(`[WeCom] Failed to fetch media: ${mediaUrl}`);
-                continue;
-              }
-
-              const contentLength = mediaResponse.headers.get("content-length");
-              if (contentLength && parseInt(contentLength, 10) > maxBytes) {
-                console.error(`[WeCom] Media file too large: ${mediaUrl}`);
-                continue;
-              }
-
-              mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
-              contentType = mediaResponse.headers.get("content-type") || "application/octet-stream";
-              try {
-                filename = new URL(mediaUrl).pathname.split("/").pop() || "media";
-              } catch {
-                filename = "media";
-              }
-            }
-
-            // 检查文件大小
-            if (mediaBuffer.length > maxBytes) {
-              console.error(`[WeCom] Media file too large: ${mediaBuffer.length} bytes`);
-              continue;
-            }
-
-            // 检测媒体类型
-            let mediaType: "image" | "voice" | "video" | "file" = "file";
-            if (contentType.startsWith("image/")) {
-              mediaType = "image";
-            } else if (contentType.startsWith("audio/")) {
-              mediaType = "voice";
-            } else if (contentType.startsWith("video/")) {
-              mediaType = "video";
-            }
-
-            // 上传到 OSS (如果配置了)
-            let ossUrl: string | undefined;
-            if (isOSSConfigured()) {
-              const ossResult = await uploadBufferToOSS(mediaBuffer, filename, contentType);
-              if (ossResult) {
-                ossUrl = ossResult.url;
-                console.error(`[WeCom] Media uploaded to OSS: ${ossUrl}`);
-              }
-            }
-
-            // 上传到企业微信
-            const uploadResult = await uploadMedia(accessToken, mediaType, mediaBuffer, filename);
-
-            // 发送消息
-            const sendParams = {
-              touser: to,
-              agentid: account.agentId,
-              media_id: uploadResult.mediaId,
+          // 如果response_url成功，直接返回
+          if (!responseUrlFailed) {
+            return {
+              channel: "wecom",
+              messageId: lastMessageId,
+              chatId: to,
             };
-
-            switch (mediaType) {
-              case "image":
-                const imgResult = await sendImageMessage(accessToken, sendParams);
-                lastMessageId = imgResult.messageId;
-                break;
-              case "voice":
-                const voiceResult = await sendVoiceMessage(accessToken, sendParams);
-                lastMessageId = voiceResult.messageId;
-                break;
-              case "video":
-                const videoResult = await sendVideoMessage(accessToken, {
-                  ...sendParams,
-                  title: filename,
-                });
-                lastMessageId = videoResult.messageId;
-                break;
-              default:
-                const fileResult = await sendFileMessage(accessToken, sendParams);
-                lastMessageId = fileResult.messageId;
-            }
-
-            // 如果有 OSS URL，发送下载链接
-            if (ossUrl && mediaType === "file") {
-              const linkText = `📎 文件下载链接: ${ossUrl}`;
-              await sendMessage(accessToken, {
-                touser: targetUser,
-                msgtype: "text",
-                agentid: account.agentId,
-                text: { content: linkText },
-                safe: 0,
-              });
-            }
-          } catch (err) {
-            console.error(`[WeCom] Error sending media ${mediaUrl}:`, err);
+          }
+          // 否则继续使用应用API fallback发送私聊
+          console.error("[WeCom] Falling back to application API for text delivery");
+          if (robotChatId) {
+            console.error(`[WeCom] Sending to group chat via appchat API: ${robotChatId}`);
+          } else if (robotSenderId) {
+            console.error(`[WeCom] Sending private message to sender: ${robotSenderId}`);
           }
         }
 
-        // 处理文本
-        const text = payload.text ?? "";
-        if (text.trim()) {
+        // 使用应用 API (access_token) 发送
+        // 策略：先尝试 appchat API 发送群聊，如果失败则 fallback 到私聊
+        const isGroupChat = Boolean(robotChatId);
+        const targetUser = isGroupChat
+          ? robotChatId!
+          : robotSenderId || to.replace(/^(user:|group:)/, "");
+
+        // 注意：智能机器人的response_url只能用一次
+        // 应用API发送可能因权限问题失败，需要多级fallback
+        try {
+          const { getAccessToken, sendMessage, sendAppchatMessage } = await import("./api.js");
+          const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+
           const tableMode = runtime.channel.text.resolveMarkdownTableMode({
             cfg,
             channel: "wecom",
@@ -842,13 +1235,15 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
             tableMode ?? "code",
           );
 
-          // 分块发送
           const chunkMode = runtime.channel.text.resolveChunkMode(cfg, "wecom", accountId);
           const chunks = runtime.channel.text.chunkMarkdownTextWithMode(
             convertedText,
             2048,
             chunkMode,
           );
+
+          let lastMessageId = "";
+          let deliveryMethod = "";
 
           for (const chunk of chunks) {
             if (isGroupChat) {
@@ -862,6 +1257,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
                   safe: 0,
                 });
                 lastMessageId = result.messageId;
+                deliveryMethod = "appchat";
               } catch (appchatError) {
                 // appchat API 失败（通常是权限问题：群聊由其他机器人创建）
                 // Fallback 到私聊发送给发送者
@@ -881,6 +1277,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
                     safe: 0,
                   });
                   lastMessageId = result.messageId;
+                  deliveryMethod = "private-message";
                 } else {
                   throw new Error("Appchat failed and no senderId for private message fallback");
                 }
@@ -895,286 +1292,78 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
                 safe: 0,
               });
               lastMessageId = result.messageId;
+              deliveryMethod = "private-message";
             }
           }
-        }
 
-        return {
-          channel: "wecom",
-          messageId: lastMessageId,
-          chatId: isGroupChat && robotSenderId ? `user:${robotSenderId}` : targetUser,
-        };
-      } catch (fallbackError) {
-        // 所有fallback都失败
-        console.error(`[WeCom] All fallback methods failed: ${fallbackError}`);
-        return {
-          channel: "wecom",
-          messageId: "",
-          chatId: targetUser,
-          error: "Message could not be delivered (response_url expired, all fallbacks failed)",
-        };
-      }
-    },
-    sendText: async ({
-      to,
-      text,
-      accountId,
-      cfg,
-      robotResponseUrl,
-      robotSenderId,
-      robotChatId,
-    }) => {
-      const runtime = getWeComRuntime();
-      const account = resolveWeComAccount({ cfg, accountId });
-
-      // 如果有 robotResponseUrl，尝试使用智能机器人的 response_url 回复
-      // 注意: response_url 只能使用一次，如果失败需要fallback到应用API发送私聊
-      if (robotResponseUrl) {
-        console.error("[WeCom] Using robotResponseUrl for text delivery");
-        let lastMessageId = "";
-        let responseUrlFailed = false;
-
-        const tableMode = runtime.channel.text.resolveMarkdownTableMode({
-          cfg,
-          channel: "wecom",
-          accountId: accountId ?? undefined,
-        });
-        const convertedText = runtime.channel.text.convertMarkdownTables(text, tableMode ?? "code");
-        const chunkMode = runtime.channel.text.resolveChunkMode(cfg, "wecom", accountId);
-        const chunks = runtime.channel.text.chunkMarkdownTextWithMode(
-          convertedText,
-          2048,
-          chunkMode,
-        );
-
-        for (const chunk of chunks) {
-          const response = await fetch(robotResponseUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              msgtype: "markdown",
-              markdown: { content: chunk },
-            }),
-          });
-          const responseText = await response.text();
-          console.error(
-            `[WeCom] Robot response_url text delivery response: ${response.status} ${responseText}`,
-          );
-
-          // Parse response to check for WeCom error codes
-          try {
-            const result = JSON.parse(responseText);
-            const errcode = Number(result.errcode);
-            if (errcode && errcode !== 0) {
-              console.error(
-                `[WeCom] Robot response_url text delivery failed with errcode: ${errcode}, errmsg: ${result.errmsg}`,
-              );
-              // errcode 60140 = invalid response code (response_url已被使用或过期)
-              // 需要fallback到应用API
-              if (errcode === 60140) {
-                console.error("[WeCom] response_url已失效(可能已被使用)，将fallback到应用API");
-                responseUrlFailed = true;
-                break;
-              }
-              throw new Error(
-                `Robot response_url text delivery failed: ${result.errmsg || errcode}`,
-              );
-            }
-          } catch (parseErr) {
-            if (!response.ok) {
-              throw new Error(`Robot response_url text delivery failed: ${response.status}`);
-            }
-          }
-          lastMessageId = `robot-${Date.now()}`;
-        }
-
-        // 如果response_url成功，直接返回
-        if (!responseUrlFailed) {
           return {
             channel: "wecom",
             messageId: lastMessageId,
-            chatId: to,
+            chatId:
+              deliveryMethod === "private-message"
+                ? `user:${robotSenderId || targetUser}`
+                : targetUser,
+          };
+        } catch (fallbackError) {
+          // 所有fallback都失败
+          console.error(`[WeCom] All fallback methods failed: ${fallbackError}`);
+          return {
+            channel: "wecom",
+            messageId: "",
+            chatId: targetUser,
+            error: "Message could not be delivered (response_url expired, all fallbacks failed)",
           };
         }
-        // 否则继续使用应用API fallback发送私聊
-        console.error("[WeCom] Falling back to application API for text delivery");
-        if (robotChatId) {
-          console.error(`[WeCom] Sending to group chat via appchat API: ${robotChatId}`);
-        } else if (robotSenderId) {
-          console.error(`[WeCom] Sending private message to sender: ${robotSenderId}`);
+      },
+      sendMedia: async ({ to, text, mediaUrl, accountId, cfg }) => {
+        if (!mediaUrl) {
+          throw new Error("mediaUrl is required");
         }
-      }
-
-      // 使用应用 API (access_token) 发送
-      // 策略：先尝试 appchat API 发送群聊，如果失败则 fallback 到私聊
-      const isGroupChat = Boolean(robotChatId);
-      const targetUser = isGroupChat
-        ? robotChatId!
-        : robotSenderId || to.replace(/^(user:|group:)/, "");
-
-      // 注意：智能机器人的response_url只能用一次
-      // 应用API发送可能因权限问题失败，需要多级fallback
-      try {
-        const { getAccessToken, sendMessage, sendAppchatMessage } = await import("./api.js");
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken, sendTextCardMessage } = await import("./api.js");
         const accessToken = await getAccessToken(account.corpId, account.agentSecret);
 
-        const tableMode = runtime.channel.text.resolveMarkdownTableMode({
-          cfg,
-          channel: "wecom",
-          accountId: accountId ?? undefined,
-        });
-        const convertedText = runtime.channel.text.convertMarkdownTables(text, tableMode ?? "code");
-
-        const chunkMode = runtime.channel.text.resolveChunkMode(cfg, "wecom", accountId);
-        const chunks = runtime.channel.text.chunkMarkdownTextWithMode(
-          convertedText,
-          2048,
-          chunkMode,
-        );
-
         let lastMessageId = "";
-        let deliveryMethod = "";
+        const mediaMaxMb = account.config.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB;
+        const maxBytes = mediaMaxMb * 1024 * 1024;
 
-        for (const chunk of chunks) {
-          if (isGroupChat) {
-            // 首先尝试使用 appchat API 发送群聊消息
-            try {
-              console.error(`[WeCom] Attempting appchat API delivery to group: ${targetUser}`);
-              const result = await sendAppchatMessage(accessToken, {
-                chatid: targetUser,
-                msgtype: "text",
-                text: { content: chunk },
-                safe: 0,
-              });
-              lastMessageId = result.messageId;
-              deliveryMethod = "appchat";
-            } catch (appchatError) {
-              // appchat API 失败（通常是权限问题：群聊由其他机器人创建）
-              // Fallback 到私聊发送给发送者
-              const errorMsg =
-                appchatError instanceof Error ? appchatError.message : String(appchatError);
-              console.error(
-                `[WeCom] Appchat API failed (${errorMsg}), falling back to private message`,
-              );
+        // 检测是否是本地文件路径
+        const resolvedMediaUrl = mediaUrl;
+        const isLocalFile =
+          !resolvedMediaUrl.startsWith("http://") && !resolvedMediaUrl.startsWith("https://");
 
-              if (robotSenderId) {
-                console.error(`[WeCom] Sending private message to sender: ${robotSenderId}`);
-                const result = await sendMessage(accessToken, {
-                  touser: robotSenderId,
-                  msgtype: "text",
-                  agentid: account.agentId,
-                  text: { content: `[群聊回复] ${chunk}` },
-                  safe: 0,
-                });
-                lastMessageId = result.messageId;
-                deliveryMethod = "private-message";
-              } else {
-                throw new Error("Appchat failed and no senderId for private message fallback");
-              }
+        try {
+          let filename: string;
+          let ossResult: { url: string; size: number; key: string; contentType: string } | null =
+            null;
+
+          if (isLocalFile) {
+            // 处理本地文件
+            const fs = await import("node:fs");
+            const path = await import("node:path");
+
+            if (!fs.existsSync(resolvedMediaUrl)) {
+              throw new Error(`Local file not found: ${resolvedMediaUrl}`);
             }
-          } else {
-            // 使用 message API 发送私聊消息
-            const result = await sendMessage(accessToken, {
-              touser: targetUser,
-              msgtype: "text",
-              agentid: account.agentId,
-              text: { content: chunk },
-              safe: 0,
-            });
-            lastMessageId = result.messageId;
-            deliveryMethod = "private-message";
-          }
-        }
 
-        return {
-          channel: "wecom",
-          messageId: lastMessageId,
-          chatId:
-            deliveryMethod === "private-message"
-              ? `user:${robotSenderId || targetUser}`
-              : targetUser,
-        };
-      } catch (fallbackError) {
-        // 所有fallback都失败
-        console.error(`[WeCom] All fallback methods failed: ${fallbackError}`);
-        return {
-          channel: "wecom",
-          messageId: "",
-          chatId: targetUser,
-          error: "Message could not be delivered (response_url expired, all fallbacks failed)",
-        };
-      }
-    },
-    sendMedia: async ({ to, text, mediaUrl, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken, sendTextCardMessage } = await import("./api.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+            const stats = fs.statSync(resolvedMediaUrl);
+            if (stats.size > maxBytes) {
+              throw new Error(`File too large: ${stats.size} bytes (max: ${maxBytes})`);
+            }
 
-      let lastMessageId = "";
-      const mediaMaxMb = account.config.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB;
-      const maxBytes = mediaMaxMb * 1024 * 1024;
+            filename = path.basename(resolvedMediaUrl);
+            const buffer = fs.readFileSync(resolvedMediaUrl);
 
-      // 检测是否是本地文件路径
-      const isLocalFile = !mediaUrl.startsWith("http://") && !mediaUrl.startsWith("https://");
+            // 上传到OSS
+            if (isOSSConfigured()) {
+              ossResult = await uploadBufferToOSS(buffer, filename);
+              console.error(`[WeCom] Uploaded local file to OSS: ${ossResult?.url}`);
+            } else {
+              throw new Error("OSS not configured, cannot send local file");
+            }
 
-      try {
-        let filename: string;
-        let ossResult: { url: string; size: number; key: string; contentType: string } | null =
-          null;
-
-        if (isLocalFile) {
-          // 处理本地文件
-          const fs = await import("node:fs");
-          const path = await import("node:path");
-
-          if (!fs.existsSync(mediaUrl)) {
-            throw new Error(`Local file not found: ${mediaUrl}`);
-          }
-
-          const stats = fs.statSync(mediaUrl);
-          if (stats.size > maxBytes) {
-            throw new Error(`File too large: ${stats.size} bytes (max: ${maxBytes})`);
-          }
-
-          filename = path.basename(mediaUrl);
-          const buffer = fs.readFileSync(mediaUrl);
-
-          // 上传到OSS
-          if (isOSSConfigured()) {
-            ossResult = await uploadBufferToOSS(buffer, filename);
-            console.error(`[WeCom] Uploaded local file to OSS: ${ossResult?.url}`);
-          } else {
-            throw new Error("OSS not configured, cannot send local file");
-          }
-
-          // 发送链接卡片
-          if (ossResult) {
-            const cardTitle = text || filename;
-            const cardDesc = `文件大小: ${(ossResult.size / 1024).toFixed(1)} KB`;
-
-            const result = await sendTextCardMessage(accessToken, {
-              touser: to,
-              agentid: account.agentId,
-              title: cardTitle,
-              description: cardDesc,
-              url: ossResult.url,
-              btntxt: "下载文件",
-            });
-
-            lastMessageId = result.messageId;
-            console.error(`[WeCom] Sent local file via OSS: ${ossResult.url}`);
-          }
-        } else {
-          // 处理远程URL
-          const urlPath = new URL(mediaUrl).pathname;
-          filename = decodeURIComponent(urlPath.split("/").pop() || "file");
-
-          // 优先使用 OSS 上传
-          if (isOSSConfigured()) {
-            ossResult = await uploadUrlToOSS(mediaUrl, filename);
-
+            // 发送链接卡片
             if (ossResult) {
-              // 发送链接卡片
               const cardTitle = text || filename;
               const cardDesc = `文件大小: ${(ossResult.size / 1024).toFixed(1)} KB`;
 
@@ -1188,469 +1377,497 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               });
 
               lastMessageId = result.messageId;
-              console.error(`[WeCom] Sent media via OSS: ${ossResult.url}`);
-              return {
-                channel: "wecom",
-                messageId: lastMessageId,
-                chatId: to,
-              };
+              console.error(`[WeCom] Sent local file via OSS: ${ossResult.url}`);
+            }
+          } else {
+            // 处理远程URL
+            const urlPath = new URL(resolvedMediaUrl).pathname;
+            filename = decodeURIComponent(urlPath.split("/").pop() || "file");
+
+            // 优先使用 OSS 上传
+            if (isOSSConfigured()) {
+              ossResult = await uploadUrlToOSS(resolvedMediaUrl, filename);
+
+              if (ossResult) {
+                // 发送链接卡片
+                const cardTitle = text || filename;
+                const cardDesc = `文件大小: ${(ossResult.size / 1024).toFixed(1)} KB`;
+
+                const result = await sendTextCardMessage(accessToken, {
+                  touser: to,
+                  agentid: account.agentId,
+                  title: cardTitle,
+                  description: cardDesc,
+                  url: ossResult.url,
+                  btntxt: "下载文件",
+                });
+
+                lastMessageId = result.messageId;
+                console.error(`[WeCom] Sent media via OSS: ${ossResult.url}`);
+                return {
+                  channel: "wecom",
+                  messageId: lastMessageId,
+                  chatId: to,
+                };
+              }
+            }
+
+            // OSS 未配置或上传失败，回退到企业微信临时素材
+            const {
+              uploadMedia,
+              sendImageMessage,
+              sendFileMessage,
+              sendVideoMessage,
+              sendVoiceMessage,
+            } = await import("./api.js");
+
+            // 1. 下载媒体文件
+            const fetchImpl = fetch;
+            const mediaResponse = await fetchImpl(resolvedMediaUrl);
+
+            if (!mediaResponse.ok) {
+              throw new Error(`Failed to fetch media: HTTP ${mediaResponse.status}`);
+            }
+
+            const contentLength = mediaResponse.headers.get("content-length");
+            if (contentLength && parseInt(contentLength, 10) > maxBytes) {
+              throw new Error(`Media file too large: ${contentLength} bytes (max: ${maxBytes})`);
+            }
+
+            const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
+
+            if (mediaBuffer.length > maxBytes) {
+              throw new Error(
+                `Media file too large: ${mediaBuffer.length} bytes (max: ${maxBytes})`,
+              );
+            }
+
+            // 2. 检测媒体类型
+            const contentType =
+              mediaResponse.headers.get("content-type") || "application/octet-stream";
+
+            let mediaType: "image" | "voice" | "video" | "file" = "file";
+            if (contentType.startsWith("image/")) {
+              mediaType = "image";
+            } else if (contentType.startsWith("audio/")) {
+              mediaType = "voice";
+            } else if (contentType.startsWith("video/")) {
+              mediaType = "video";
+            }
+
+            // 3. 上传到企业微信
+            const uploadResult = await uploadMedia(accessToken, mediaType, mediaBuffer, filename);
+
+            // 4. 发送消息
+            const sendParams = {
+              touser: to,
+              agentid: account.agentId,
+              media_id: uploadResult.mediaId,
+            };
+
+            switch (mediaType) {
+              case "image":
+                const imgResult = await sendImageMessage(accessToken, sendParams);
+                lastMessageId = imgResult.messageId;
+                break;
+              case "voice":
+                const voiceResult = await sendVoiceMessage(accessToken, sendParams);
+                lastMessageId = voiceResult.messageId;
+                break;
+              case "video":
+                const videoResult = await sendVideoMessage(accessToken, {
+                  ...sendParams,
+                  title: text || filename,
+                });
+                lastMessageId = videoResult.messageId;
+                break;
+              default:
+                const fileResult = await sendFileMessage(accessToken, sendParams);
+                lastMessageId = fileResult.messageId;
             }
           }
-
-          // OSS 未配置或上传失败，回退到企业微信临时素材
-          const {
-            uploadMedia,
-            sendImageMessage,
-            sendFileMessage,
-            sendVideoMessage,
-            sendVoiceMessage,
-          } = await import("./api.js");
-
-          // 1. 下载媒体文件
-          const fetchImpl = fetch;
-          const mediaResponse = await fetchImpl(mediaUrl);
-
-          if (!mediaResponse.ok) {
-            throw new Error(`Failed to fetch media: HTTP ${mediaResponse.status}`);
-          }
-
-          const contentLength = mediaResponse.headers.get("content-length");
-          if (contentLength && parseInt(contentLength, 10) > maxBytes) {
-            throw new Error(`Media file too large: ${contentLength} bytes (max: ${maxBytes})`);
-          }
-
-          const mediaBuffer = Buffer.from(await mediaResponse.arrayBuffer());
-
-          if (mediaBuffer.length > maxBytes) {
-            throw new Error(`Media file too large: ${mediaBuffer.length} bytes (max: ${maxBytes})`);
-          }
-
-          // 2. 检测媒体类型
-          const contentType =
-            mediaResponse.headers.get("content-type") || "application/octet-stream";
-
-          let mediaType: "image" | "voice" | "video" | "file" = "file";
-          if (contentType.startsWith("image/")) {
-            mediaType = "image";
-          } else if (contentType.startsWith("audio/")) {
-            mediaType = "voice";
-          } else if (contentType.startsWith("video/")) {
-            mediaType = "video";
-          }
-
-          // 3. 上传到企业微信
-          const uploadResult = await uploadMedia(accessToken, mediaType, mediaBuffer, filename);
-
-          // 4. 发送消息
-          const sendParams = {
-            touser: to,
-            agentid: account.agentId,
-            media_id: uploadResult.mediaId,
-          };
-
-          switch (mediaType) {
-            case "image":
-              const imgResult = await sendImageMessage(accessToken, sendParams);
-              lastMessageId = imgResult.messageId;
-              break;
-            case "voice":
-              const voiceResult = await sendVoiceMessage(accessToken, sendParams);
-              lastMessageId = voiceResult.messageId;
-              break;
-            case "video":
-              const videoResult = await sendVideoMessage(accessToken, {
-                ...sendParams,
-                title: text || filename,
-              });
-              lastMessageId = videoResult.messageId;
-              break;
-            default:
-              const fileResult = await sendFileMessage(accessToken, sendParams);
-              lastMessageId = fileResult.messageId;
-          }
+        } catch (err) {
+          console.error("[WeCom] sendMedia error:", err);
+          throw err;
         }
-      } catch (err) {
-        console.error("[WeCom] sendMedia error:", err);
-        throw err;
-      }
 
-      return {
-        channel: "wecom",
-        messageId: lastMessageId,
-        chatId: to,
-      };
-    },
-    /**
-     * 发送文本卡片消息（链接卡片）
-     */
-    sendTextCard: async ({ to, title, description, url, buttonText, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
+        return {
+          channel: "wecom",
+          messageId: lastMessageId,
+          chatId: to,
+        };
+      },
+      /**
+       * 发送文本卡片消息（链接卡片）
+       */
+      sendTextCard: async ({ to, title, description, url, buttonText, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
 
-      const { getAccessToken, sendTextCardMessage } = await import("./api.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        const { getAccessToken, sendTextCardMessage } = await import("./api.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
 
-      const result = await sendTextCardMessage(accessToken, {
-        touser: to,
-        agentid: account.agentId,
-        title: title || "链接",
-        description: description || "",
-        url: url || "",
-        btntxt: buttonText || "查看详情",
-      });
+        const result = await sendTextCardMessage(accessToken, {
+          touser: to,
+          agentid: account.agentId,
+          title: title || "链接",
+          description: description || "",
+          url: url || "",
+          btntxt: buttonText || "查看详情",
+        });
 
-      return {
-        channel: "wecom",
-        messageId: result.messageId,
-        chatId: to,
-      };
-    },
-    /**
-     * 发送图文消息（多条图文卡片）
-     */
-    sendNews: async ({ to, articles, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
+        return {
+          channel: "wecom",
+          messageId: result.messageId,
+          chatId: to,
+        };
+      },
+      /**
+       * 发送图文消息（多条图文卡片）
+       */
+      sendNews: async ({ to, articles, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
 
-      const { getAccessToken, sendNewsMessage } = await import("./api.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        const { getAccessToken, sendNewsMessage } = await import("./api.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
 
-      // 确保文章格式正确
-      const formattedArticles = (articles || []).map((article) => ({
-        title: article.title || "",
-        description: article.description || "",
-        url: article.url || "",
-        picurl: article.picurl || article.picUrl || "",
-      }));
+        // 确保文章格式正确
+        const formattedArticles = (articles || []).map((article) => ({
+          title: article.title || "",
+          description: article.description || "",
+          url: article.url || "",
+          picurl: article.picurl || article.picUrl || "",
+        }));
 
-      const result = await sendNewsMessage(accessToken, {
-        touser: to,
-        agentid: account.agentId,
-        articles: formattedArticles,
-      });
+        const result = await sendNewsMessage(accessToken, {
+          touser: to,
+          agentid: account.agentId,
+          articles: formattedArticles,
+        });
 
-      return {
-        channel: "wecom",
-        messageId: result.messageId,
-        chatId: to,
-      };
-    },
-    /**
-     * 发送 Markdown 消息
-     */
-    sendMarkdown: async ({ to, content, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
+        return {
+          channel: "wecom",
+          messageId: result.messageId,
+          chatId: to,
+        };
+      },
+      /**
+       * 发送 Markdown 消息
+       */
+      sendMarkdown: async ({ to, content, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
 
-      const { getAccessToken, sendMarkdownMessage } = await import("./api.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        const { getAccessToken, sendMarkdownMessage } = await import("./api.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
 
-      const result = await sendMarkdownMessage(accessToken, {
-        touser: to,
-        agentid: account.agentId,
-        content: content || "",
-      });
+        const result = await sendMarkdownMessage(accessToken, {
+          touser: to,
+          agentid: account.agentId,
+          content: content || "",
+        });
 
-      return {
-        channel: "wecom",
-        messageId: result.messageId,
-        chatId: to,
-      };
-    },
-    // ===================== 微盘 (WeDrive) 功能 =====================
-    /**
-     * 获取微盘空间列表
-     */
-    wedriveGetSpaces: async ({ userId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getSpaceList } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getSpaceList(accessToken, { userId });
-    },
-    /**
-     * 获取微盘文件列表
-     */
-    wedriveGetFileList: async ({
-      userId,
-      spaceId,
-      fatherId,
-      sortType,
-      start,
-      limit,
-      accountId,
-      cfg,
-    }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getFileList } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getFileList(accessToken, { userId, spaceId, fatherId, sortType, start, limit });
-    },
-    /**
-     * 获取微盘文件信息
-     */
-    wedriveGetFileInfo: async ({ userId, fileId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getFileInfo } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getFileInfo(accessToken, { userId, fileId });
-    },
-    /**
-     * 上传文件到微盘
-     */
-    wedriveUploadFile: async ({
-      userId,
-      spaceId,
-      fatherId,
-      fileName,
-      fileContent,
-      accountId,
-      cfg,
-    }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { uploadFile } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return uploadFile(accessToken, { userId, spaceId, fatherId, fileName, fileContent });
-    },
-    /**
-     * 下载微盘文件
-     */
-    wedriveDownloadFile: async ({ userId, fileId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { downloadFile } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return downloadFile(accessToken, { userId, fileId });
-    },
-    /**
-     * 在微盘创建文件夹
-     */
-    wedriveCreateFolder: async ({ userId, spaceId, fatherId, folderName, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { createFolder } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return createFolder(accessToken, { userId, spaceId, fatherId, folderName });
-    },
-    /**
-     * 重命名微盘文件/文件夹
-     */
-    wedriveRenameFile: async ({ userId, fileId, newName, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { renameFile } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return renameFile(accessToken, { userId, fileId, newName });
-    },
-    /**
-     * 移动微盘文件
-     */
-    wedriveMoveFiles: async ({ userId, fatherId, replace, fileIds, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { moveFiles } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return moveFiles(accessToken, { userId, fatherId, replace, fileIds });
-    },
-    /**
-     * 删除微盘文件
-     */
-    wedriveDeleteFiles: async ({ userId, fileIds, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { deleteFiles } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return deleteFiles(accessToken, { userId, fileIds });
-    },
-    /**
-     * 分享微盘文件
-     */
-    wedriveShareFile: async ({ userId, fileId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { shareFile } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return shareFile(accessToken, { userId, fileId });
-    },
-    /**
-     * 设置微盘文件权限
-     */
-    wedriveSetFileAuth: async ({ userId, fileId, auth, authSuccessor, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { setFileAuth } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return setFileAuth(accessToken, { userId, fileId, auth, authSuccessor });
-    },
-    /**
-     * 添加微盘文件权限
-     */
-    wedriveAddFileAcl: async ({ userId, fileId, aclList, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { addFileAcl } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return addFileAcl(accessToken, { userId, fileId, aclList });
-    },
-    /**
-     * 删除微盘文件权限
-     */
-    wedriveDelFileAcl: async ({ userId, fileId, authInfo, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { delFileAcl } = await import("./wedrive.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return delFileAcl(accessToken, { userId, fileId, authInfo });
-    },
-    // ===================== 通讯录 (Contacts) 功能 =====================
-    /**
-     * 获取部门列表
-     */
-    getDepartmentList: async ({ departmentId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getDepartmentList: doGetDepartmentList } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return doGetDepartmentList(accessToken, departmentId);
-    },
-    /**
-     * 获取成员详情
-     */
-    getUser: async ({ userId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getUser: doGetUser } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return doGetUser(accessToken, userId);
-    },
-    /**
-     * 获取部门成员列表
-     */
-    getDepartmentUsers: async ({ departmentId, fetchChild, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getDepartmentUserList } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getDepartmentUserList(accessToken, departmentId, fetchChild);
-    },
-    /**
-     * 搜索成员
-     */
-    searchUser: async ({ query, departmentId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { searchUser: doSearchUser, findUserByName } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return {
+          channel: "wecom",
+          messageId: result.messageId,
+          chatId: to,
+        };
+      },
+      // ===================== 微盘 (WeDrive) 功能 =====================
+      /**
+       * 获取微盘空间列表
+       */
+      wedriveGetSpaces: async ({ userId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getSpaceList } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getSpaceList(accessToken, { userId });
+      },
+      /**
+       * 获取微盘文件列表
+       */
+      wedriveGetFileList: async ({
+        userId,
+        spaceId,
+        fatherId,
+        sortType,
+        start,
+        limit,
+        accountId,
+        cfg,
+      }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getFileList } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getFileList(accessToken, { userId, spaceId, fatherId, sortType, start, limit });
+      },
+      /**
+       * 获取微盘文件信息
+       */
+      wedriveGetFileInfo: async ({ userId, fileId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getFileInfo } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getFileInfo(accessToken, { userId, fileId });
+      },
+      /**
+       * 上传文件到微盘
+       */
+      wedriveUploadFile: async ({
+        userId,
+        spaceId,
+        fatherId,
+        fileName,
+        fileContent,
+        accountId,
+        cfg,
+      }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { uploadFile } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return uploadFile(accessToken, { userId, spaceId, fatherId, fileName, fileContent });
+      },
+      /**
+       * 下载微盘文件
+       */
+      wedriveDownloadFile: async ({ userId, fileId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { downloadFile } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return downloadFile(accessToken, { userId, fileId });
+      },
+      /**
+       * 在微盘创建文件夹
+       */
+      wedriveCreateFolder: async ({ userId, spaceId, fatherId, folderName, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { createFolder } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return createFolder(accessToken, { userId, spaceId, fatherId, folderName });
+      },
+      /**
+       * 重命名微盘文件/文件夹
+       */
+      wedriveRenameFile: async ({ userId, fileId, newName, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { renameFile } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return renameFile(accessToken, { userId, fileId, newName });
+      },
+      /**
+       * 移动微盘文件
+       */
+      wedriveMoveFiles: async ({ userId, fatherId, replace, fileIds, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { moveFiles } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return moveFiles(accessToken, { userId, fatherId, replace, fileIds });
+      },
+      /**
+       * 删除微盘文件
+       */
+      wedriveDeleteFiles: async ({ userId, fileIds, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { deleteFiles } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return deleteFiles(accessToken, { userId, fileIds });
+      },
+      /**
+       * 分享微盘文件
+       */
+      wedriveShareFile: async ({ userId, fileId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { shareFile } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return shareFile(accessToken, { userId, fileId });
+      },
+      /**
+       * 设置微盘文件权限
+       */
+      wedriveSetFileAuth: async ({ userId, fileId, auth, authSuccessor, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { setFileAuth } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return setFileAuth(accessToken, { userId, fileId, auth, authSuccessor });
+      },
+      /**
+       * 添加微盘文件权限
+       */
+      wedriveAddFileAcl: async ({ userId, fileId, aclList, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { addFileAcl } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return addFileAcl(accessToken, { userId, fileId, aclList });
+      },
+      /**
+       * 删除微盘文件权限
+       */
+      wedriveDelFileAcl: async ({ userId, fileId, authInfo, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { delFileAcl } = await import("./wedrive.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return delFileAcl(accessToken, { userId, fileId, authInfo });
+      },
+      // ===================== 通讯录 (Contacts) 功能 =====================
+      /**
+       * 获取部门列表
+       */
+      getDepartmentList: async ({ departmentId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getDepartmentList: doGetDepartmentList } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return doGetDepartmentList(accessToken, departmentId);
+      },
+      /**
+       * 获取成员详情
+       */
+      getUser: async ({ userId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getUser: doGetUser } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return doGetUser(accessToken, userId);
+      },
+      /**
+       * 获取部门成员列表
+       */
+      getDepartmentUsers: async ({ departmentId, fetchChild, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getDepartmentUserList } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getDepartmentUserList(accessToken, departmentId, fetchChild);
+      },
+      /**
+       * 搜索成员
+       */
+      searchUser: async ({ query, departmentId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { searchUser: doSearchUser, findUserByName } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
 
-      // 如果是按名称搜索
-      if (query && !departmentId) {
-        return findUserByName(accessToken, query);
-      }
+        // 如果是按名称搜索
+        if (query && !departmentId) {
+          return findUserByName(accessToken, query);
+        }
 
-      return doSearchUser(accessToken, {
-        name: query,
-        department: departmentId ? [departmentId] : undefined,
-      });
-    },
-    /**
-     * 根据手机号/邮箱获取用户ID
-     */
-    getUserIdByPhone: async ({ mobile, email, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getUserIdByPhone: doGetUserId } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return doGetUserId(accessToken, { mobile, email });
-    },
-    /**
-     * 获取标签列表
-     */
-    getTagList: async ({ accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getTagList } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getTagList(accessToken);
-    },
-    /**
-     * 获取标签成员
-     */
-    getTagMembers: async ({ tagId, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getTagMembers } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getTagMembers(accessToken, tagId);
-    },
-    /**
-     * 获取所有成员（遍历所有部门）
-     */
-    getAllUsers: async ({ accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { getAllUsers } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return getAllUsers(accessToken);
-    },
-    /**
-     * 根据部门名称查找部门
-     */
-    findDepartmentByName: async ({ name, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken } = await import("./api.js");
-      const { findDepartmentByName: doFindDept } = await import("./contacts.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
-      return doFindDept(accessToken, name);
-    },
-    /**
-     * 解析消息中的 @成员
-     */
-    parseMentions: async ({ content }) => {
-      const { parseMentions } = await import("./contacts.js");
-      return parseMentions(content);
-    },
-    /**
-     * 格式化 @成员 列表
-     */
-    formatMentions: async ({ userIds }) => {
-      const { formatMentionList } = await import("./contacts.js");
-      // 构造简单的用户对象列表
-      const users = userIds.map((id: string) => ({ userid: id, name: id, department: [] }));
-      return formatMentionList(users);
-    },
-    /**
-     * 发送消息并 @指定成员
-     */
-    sendWithMentions: async ({ to, content, mentionUserIds, mentionAll, accountId, cfg }) => {
-      const account = resolveWeComAccount({ cfg, accountId });
-      const { getAccessToken, sendMessage } = await import("./api.js");
-      const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return doSearchUser(accessToken, {
+          name: query,
+          department: departmentId ? [departmentId] : undefined,
+        });
+      },
+      /**
+       * 根据手机号/邮箱获取用户ID
+       */
+      getUserIdByPhone: async ({ mobile, email, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getUserIdByPhone: doGetUserId } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return doGetUserId(accessToken, { mobile, email });
+      },
+      /**
+       * 获取标签列表
+       */
+      getTagList: async ({ accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getTagList } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getTagList(accessToken);
+      },
+      /**
+       * 获取标签成员
+       */
+      getTagMembers: async ({ tagId, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getTagMembers } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getTagMembers(accessToken, tagId);
+      },
+      /**
+       * 获取所有成员（遍历所有部门）
+       */
+      getAllUsers: async ({ accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { getAllUsers } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return getAllUsers(accessToken);
+      },
+      /**
+       * 根据部门名称查找部门
+       */
+      findDepartmentByName: async ({ name, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken } = await import("./api.js");
+        const { findDepartmentByName: doFindDept } = await import("./contacts.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
+        return doFindDept(accessToken, name);
+      },
+      /**
+       * 解析消息中的 @成员
+       */
+      parseMentions: async ({ content }) => {
+        const { parseMentions } = await import("./contacts.js");
+        return parseMentions(content);
+      },
+      /**
+       * 格式化 @成员 列表
+       */
+      formatMentions: async ({ userIds }) => {
+        const { formatMentionList } = await import("./contacts.js");
+        // 构造简单的用户对象列表
+        const users = userIds.map((id: string) => ({ userid: id, name: id, department: [] }));
+        return formatMentionList(users);
+      },
+      /**
+       * 发送消息并 @指定成员
+       */
+      sendWithMentions: async ({ to, content, mentionUserIds, mentionAll, accountId, cfg }) => {
+        const account = resolveWeComAccount({ cfg, accountId });
+        const { getAccessToken, sendMessage } = await import("./api.js");
+        const accessToken = await getAccessToken(account.corpId, account.agentSecret);
 
-      // 构建 mention 列表
-      let textContent = content;
-      if (mentionUserIds && mentionUserIds.length > 0) {
-        const mentions = mentionUserIds.map((id: string) => `<@${id}>`).join("");
-        textContent = mentions + content;
-      }
-      if (mentionAll) {
-        textContent = "<@all>" + textContent;
-      }
+        // 构建 mention 列表
+        let textContent = content;
+        if (mentionUserIds && mentionUserIds.length > 0) {
+          const mentions = mentionUserIds.map((id: string) => `<@${id}>`).join("");
+          textContent = mentions + content;
+        }
+        if (mentionAll) {
+          textContent = "<@all>" + textContent;
+        }
 
-      const result = await sendMessage(accessToken, {
-        touser: to,
-        msgtype: "text",
-        agentid: account.agentId,
-        text: { content: textContent },
-        safe: 0,
-      });
+        const result = await sendMessage(accessToken, {
+          touser: to,
+          msgtype: "text",
+          agentid: account.agentId,
+          text: { content: textContent },
+          safe: 0,
+        });
 
-      return {
-        channel: "wecom",
-        messageId: result.messageId,
-        chatId: to,
-      };
-    },
-  },
+        return {
+          channel: "wecom",
+          messageId: result.messageId,
+          chatId: to,
+        };
+      },
+    }) satisfies WeComExtendedOutbound)(),
   status: {
     defaultRuntime: {
       accountId: DEFAULT_ACCOUNT_ID,
@@ -1659,26 +1876,35 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
       lastStopAt: null,
       lastError: null,
     },
-    collectStatusIssues: ({ account }) => {
-      const issues: Array<{ level: "error" | "warning"; message: string }> = [];
+    collectStatusIssues: (accounts) => {
+      return accounts.flatMap((account) => {
+        const issues: Array<{
+          channel: "wecom";
+          accountId: string;
+          kind: "config" | "runtime";
+          message: string;
+        }> = [];
 
-      if (!account) {
+        if (account.configured === false) {
+          issues.push({
+            channel: "wecom",
+            accountId: account.accountId,
+            kind: "config",
+            message: "WeCom account not fully configured",
+          });
+        }
+
+        if (typeof account.lastError === "string" && account.lastError.trim()) {
+          issues.push({
+            channel: "wecom",
+            accountId: account.accountId,
+            kind: "runtime",
+            message: account.lastError,
+          });
+        }
+
         return issues;
-      }
-
-      if (!account.corpId) {
-        issues.push({ level: "error", message: "WeCom corpId not configured" });
-      }
-
-      if (!account.agentId) {
-        issues.push({ level: "error", message: "WeCom agentId not configured" });
-      }
-
-      if (!account.agentSecret) {
-        issues.push({ level: "error", message: "WeCom agentSecret not configured" });
-      }
-
-      return issues;
+      });
     },
     buildChannelSummary: ({ snapshot }) => ({
       configured: snapshot.configured ?? false,
@@ -1728,6 +1954,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
       const { account, cfg, runtime, abortSignal } = ctx;
       const core = getWeComRuntime();
       const wecomConfig = (cfg.channels?.wecom ?? {}) as WeComConfig;
+      const statusSink = createGatewayStatusSink(ctx);
 
       ctx.log?.info(`[${account.accountId}] starting WeCom provider`);
 
@@ -1777,6 +2004,11 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
           const appAgentSecret = accountConfig.agentSecret || "";
 
           if (appPath && appToken && appAESKey) {
+            const normalizedAppPath = normalizePluginHttpPath(appPath, appPath);
+            if (!normalizedAppPath) {
+              ctx.log?.warn?.(`[${accountId}] Skipping invalid app webhook path: ${appPath}`);
+              continue;
+            }
             const resolvedAccount: ResolvedWeComAccount = {
               accountId,
               name: accountConfig.name,
@@ -1787,10 +2019,10 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               agentSecret: appAgentSecret,
               token: appToken,
               encodingAESKey: appAESKey,
-              webhookPath: appPath,
+              webhookPath: normalizedAppPath,
             };
 
-            const unregister = registerWeComWebhookTarget(appPath, {
+            const unregisterTarget = registerWeComWebhookTarget(normalizedAppPath, {
               account: resolvedAccount,
               agentId: appAgentId,
               config: cfg,
@@ -1810,10 +2042,20 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               encodingAESKey: appAESKey,
               corpId: appCorpId,
               mediaMaxMb: accountConfig.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB,
-              statusSink: ctx.statusSink,
+              statusSink,
             });
-            unregisters.push(unregister);
-            ctx.log?.info(`[${accountId}] Registered app webhook: ${appPath}`);
+            unregisters.push(unregisterTarget);
+            const unregisterRoute = registerPluginHttpRoute({
+              path: normalizedAppPath,
+              auth: "plugin",
+              replaceExisting: true,
+              pluginId: meta.id,
+              accountId,
+              log: (message) => ctx.log?.info?.(message),
+              handler: handleWeComWebhookRequest,
+            });
+            unregisters.push(unregisterRoute);
+            ctx.log?.info(`[${accountId}] Registered app webhook: ${normalizedAppPath}`);
           }
         }
       }
@@ -1831,22 +2073,19 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
           const robotCorpId = robotConfig.corpId || wecomConfig.corpId || "";
 
           if (robotPath && robotToken && robotAESKey) {
+            const normalizedRobotPath = normalizePluginHttpPath(robotPath, robotPath);
+            if (!normalizedRobotPath) {
+              ctx.log?.warn?.(`[${robotId}] Skipping invalid robot webhook path: ${robotPath}`);
+              continue;
+            }
             // 机器人使用专用的机器人注册函数
-            const unregister = registerWeComRobotWebhookTarget(robotPath, {
+            const unregisterTarget = registerWeComRobotWebhookTarget(normalizedRobotPath, {
               account: {
                 accountId: robotId,
                 name: robotConfig.name,
                 enabled: robotConfig.enabled ?? true,
                 config: robotConfig,
-                // 机器人没有 corpId/agentId/agentSecret，使用渠道级别的值或空值
-                corpId: robotCorpId,
-                agentId: 0,
-                agentSecret: "",
-                token: robotToken,
-                encodingAESKey: robotAESKey,
-                webhookPath: robotPath,
               },
-              agentId: 0, // 机器人没有 agentId
               config: cfg,
               runtime: {
                 log: ctx.log?.info
@@ -1859,16 +2098,21 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
                   ? (msg) => ctx.log?.debug?.(`[wecom-robot:${robotId}] ${msg}`)
                   : undefined,
               },
-              core,
-              token: robotToken,
-              encodingAESKey: robotAESKey,
-              corpId: robotCorpId,
-              mediaMaxMb: DEFAULT_MEDIA_MAX_MB,
-              statusSink: ctx.statusSink,
+              statusSink,
             });
-            unregisters.push(unregister);
+            unregisters.push(unregisterTarget);
+            const unregisterRoute = registerPluginHttpRoute({
+              path: normalizedRobotPath,
+              auth: "plugin",
+              replaceExisting: true,
+              pluginId: meta.id,
+              accountId: robotId,
+              log: (message) => ctx.log?.info?.(message),
+              handler: handleWeComWebhookRequest,
+            });
+            unregisters.push(unregisterRoute);
             ctx.log?.info(
-              `[${account.accountId}] Registered robot webhook: ${robotPath} (robotId: ${robotId})`,
+              `[${account.accountId}] Registered robot webhook: ${normalizedRobotPath} (robotId: ${robotId})`,
             );
           }
         }
@@ -1894,7 +2138,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
       });
     },
     logoutAccount: async ({ accountId, cfg }) => {
-      const nextCfg = { ...cfg } as ClawdbotConfig;
+      const nextCfg = { ...cfg } as OpenClawConfig;
       const wecomConfig = (cfg.channels?.wecom ?? {}) as WeComConfig;
       const nextWecom = { ...wecomConfig };
 

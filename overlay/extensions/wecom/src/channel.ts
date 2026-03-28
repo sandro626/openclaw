@@ -6,17 +6,23 @@
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import {
   buildChannelConfigSchema,
   DmPolicySchema,
   GroupPolicySchema,
   DEFAULT_ACCOUNT_ID,
+  normalizePluginHttpPath,
+  registerPluginHttpRoute,
   type ChannelPlugin,
-  type ClawdbotConfig,
-} from "openclaw/plugin-sdk";
-import { z } from "zod";
+  type OpenClawConfig,
+} from "../api.js";
 import { clearAccessTokenCache } from "./api.js";
-import { registerWeComWebhookTarget, DEFAULT_MEDIA_MAX_MB } from "./monitor.js";
+import {
+  handleWeComWebhookRequest,
+  registerWeComWebhookTarget,
+  DEFAULT_MEDIA_MAX_MB,
+} from "./monitor.js";
 import { setOSSConfig, isOSSConfigured, uploadUrlToOSS, uploadBufferToOSS } from "./oss.js";
 import { registerWeComRobotWebhookTarget } from "./robot.js";
 import { getWeComRuntime } from "./runtime.js";
@@ -129,7 +135,7 @@ const WeComConfigSchema = z
  * 解析 WeCom 账户配置
  */
 function resolveWeComAccount(params: {
-  cfg: ClawdbotConfig;
+  cfg: OpenClawConfig;
   accountId?: string;
 }): ResolvedWeComAccount {
   const { cfg, accountId } = params;
@@ -168,7 +174,7 @@ function resolveWeComAccount(params: {
 /**
  * 列出所有 WeCom 账户 ID (包括应用和机器人)
  */
-function listWeComAccountIds(cfg: ClawdbotConfig): string[] {
+function listWeComAccountIds(cfg: OpenClawConfig): string[] {
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
   const ids: string[] = [];
 
@@ -205,7 +211,7 @@ function listWeComAccountIds(cfg: ClawdbotConfig): string[] {
 /**
  * 列出所有智能机器人账户 ID
  */
-function listWeComRobotAccountIds(cfg: ClawdbotConfig): string[] {
+function listWeComRobotAccountIds(cfg: OpenClawConfig): string[] {
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
   const ids: string[] = [];
 
@@ -225,7 +231,7 @@ function listWeComRobotAccountIds(cfg: ClawdbotConfig): string[] {
 /**
  * 检查账户是否为机器人账户
  */
-function isRobotAccount(cfg: ClawdbotConfig, accountId: string): boolean {
+function isRobotAccount(cfg: OpenClawConfig, accountId: string): boolean {
   const config = (cfg.channels?.wecom ?? {}) as WeComConfig;
   const robots = config.robots;
   return robots ? accountId in robots : false;
@@ -234,7 +240,7 @@ function isRobotAccount(cfg: ClawdbotConfig, accountId: string): boolean {
 /**
  * 解析默认 WeCom 账户 ID
  */
-function resolveDefaultWeComAccountId(cfg: ClawdbotConfig): string {
+function resolveDefaultWeComAccountId(cfg: OpenClawConfig): string {
   const ids = listWeComAccountIds(cfg);
   return ids[0] ?? DEFAULT_ACCOUNT_ID;
 }
@@ -388,7 +394,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
         allowFrom: account.config.allowFrom ?? [],
         policyPath: `${basePath}dmPolicy`,
         allowFromPath: basePath,
-        approveHint: "clawdbot pairing approve wecom <code>",
+        approveHint: "openclaw pairing approve wecom <code>",
         normalizeEntry: (raw) => raw.replace(/^wecom:(user:)?/i, ""),
       };
     },
@@ -1777,6 +1783,11 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
           const appAgentSecret = accountConfig.agentSecret || "";
 
           if (appPath && appToken && appAESKey) {
+            const normalizedAppPath = normalizePluginHttpPath(appPath, appPath);
+            if (!normalizedAppPath) {
+              ctx.log?.warn?.(`[${accountId}] Skipping invalid app webhook path: ${appPath}`);
+              continue;
+            }
             const resolvedAccount: ResolvedWeComAccount = {
               accountId,
               name: accountConfig.name,
@@ -1787,10 +1798,10 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               agentSecret: appAgentSecret,
               token: appToken,
               encodingAESKey: appAESKey,
-              webhookPath: appPath,
+              webhookPath: normalizedAppPath,
             };
 
-            const unregister = registerWeComWebhookTarget(appPath, {
+            const unregisterTarget = registerWeComWebhookTarget(normalizedAppPath, {
               account: resolvedAccount,
               agentId: appAgentId,
               config: cfg,
@@ -1812,8 +1823,18 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               mediaMaxMb: accountConfig.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB,
               statusSink: ctx.statusSink,
             });
-            unregisters.push(unregister);
-            ctx.log?.info(`[${accountId}] Registered app webhook: ${appPath}`);
+            unregisters.push(unregisterTarget);
+            const unregisterRoute = registerPluginHttpRoute({
+              path: normalizedAppPath,
+              auth: "plugin",
+              replaceExisting: true,
+              pluginId: meta.id,
+              accountId,
+              log: (message) => ctx.log?.info?.(message),
+              handler: handleWeComWebhookRequest,
+            });
+            unregisters.push(unregisterRoute);
+            ctx.log?.info(`[${accountId}] Registered app webhook: ${normalizedAppPath}`);
           }
         }
       }
@@ -1831,8 +1852,13 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
           const robotCorpId = robotConfig.corpId || wecomConfig.corpId || "";
 
           if (robotPath && robotToken && robotAESKey) {
+            const normalizedRobotPath = normalizePluginHttpPath(robotPath, robotPath);
+            if (!normalizedRobotPath) {
+              ctx.log?.warn?.(`[${robotId}] Skipping invalid robot webhook path: ${robotPath}`);
+              continue;
+            }
             // 机器人使用专用的机器人注册函数
-            const unregister = registerWeComRobotWebhookTarget(robotPath, {
+            const unregisterTarget = registerWeComRobotWebhookTarget(normalizedRobotPath, {
               account: {
                 accountId: robotId,
                 name: robotConfig.name,
@@ -1844,7 +1870,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
                 agentSecret: "",
                 token: robotToken,
                 encodingAESKey: robotAESKey,
-                webhookPath: robotPath,
+                webhookPath: normalizedRobotPath,
               },
               agentId: 0, // 机器人没有 agentId
               config: cfg,
@@ -1866,9 +1892,19 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
               mediaMaxMb: DEFAULT_MEDIA_MAX_MB,
               statusSink: ctx.statusSink,
             });
-            unregisters.push(unregister);
+            unregisters.push(unregisterTarget);
+            const unregisterRoute = registerPluginHttpRoute({
+              path: normalizedRobotPath,
+              auth: "plugin",
+              replaceExisting: true,
+              pluginId: meta.id,
+              accountId: robotId,
+              log: (message) => ctx.log?.info?.(message),
+              handler: handleWeComWebhookRequest,
+            });
+            unregisters.push(unregisterRoute);
             ctx.log?.info(
-              `[${account.accountId}] Registered robot webhook: ${robotPath} (robotId: ${robotId})`,
+              `[${account.accountId}] Registered robot webhook: ${normalizedRobotPath} (robotId: ${robotId})`,
             );
           }
         }
@@ -1894,7 +1930,7 @@ export const wecomPlugin: ChannelPlugin<ResolvedWeComAccount> & Record<string, a
       });
     },
     logoutAccount: async ({ accountId, cfg }) => {
-      const nextCfg = { ...cfg } as ClawdbotConfig;
+      const nextCfg = { ...cfg } as OpenClawConfig;
       const wecomConfig = (cfg.channels?.wecom ?? {}) as WeComConfig;
       const nextWecom = { ...wecomConfig };
 

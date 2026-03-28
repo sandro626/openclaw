@@ -1,4 +1,4 @@
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "./api.js";
 import { zentaoConfigSchema } from "./src/config-schema.js";
 import { createZentaoRuntimeManager } from "./src/runtime.js";
 import { createZentaoBugTool } from "./src/tools/bug.js";

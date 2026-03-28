@@ -22,6 +22,11 @@ export type SuperBrowerPlannedStep = {
   otp?: string;
   waitForText?: string;
   waitForUrl?: string;
+  fields?: Array<{
+    name: string;
+    value: string;
+    selector?: string;
+  }>;
 };
 
 export async function planSuperBrowserTask(params: {
@@ -231,6 +236,16 @@ function normalizePlannerSteps(params: {
   }
 
   return mergeSteps(normalized, fallback).slice(0, params.maxSteps);
+}
+
+export function normalizePlannerStepsForTest(params: {
+  goal: string;
+  snapshot: unknown;
+  siteProfile: SuperBrowerSiteProfile | null;
+  steps: SuperBrowerPlannedStep[];
+  maxSteps: number;
+}) {
+  return normalizePlannerSteps(params);
 }
 
 function normalizeLoginStep(

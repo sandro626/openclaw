@@ -1,4 +1,4 @@
-import type { PluginLogger } from "openclaw/plugin-sdk";
+import type { PluginLogger } from "../api.js";
 import type { SuperBrowerConfig } from "./config-schema.js";
 import { createSuperBrowerSession } from "./executor.js";
 import type { SuperBrowerRuntime, SuperBrowerSession } from "./types.js";

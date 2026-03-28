@@ -23,9 +23,9 @@ describe("summarizeAuthState", () => {
           data: { menus: [], permissions: [] },
         },
       },
-      currentUrl: "https://bmsys-test.cdyzyc.com/#/screens/school-control/",
+      currentUrl: "https://portal.example.com/#/screens/school-control/",
       currentTitle: "404 - 芯安校园管理后台",
-      candidateUrls: ["https://bmsys-test.cdyzyc.com/#/screens/school-control/"],
+      candidateUrls: ["https://portal.example.com/#/screens/school-control/"],
     });
 
     expect(result.conclusion).toContain("account has no menus");
@@ -49,11 +49,11 @@ describe("summarizeAuthState", () => {
           data: { menus: [{ path: "/dashboard" }], permissions: ["view"] },
         },
       },
-      currentUrl: "https://bmsys-test.cdyzyc.com/#/screens/school-control/",
+      currentUrl: "https://portal.example.com/#/screens/school-control/",
       currentTitle: "404 - 芯安校园管理后台",
       candidateUrls: [
-        "https://bmsys-test.cdyzyc.com/#/screens/school-control/",
-        "https://bmsys-test.cdyzyc.com/#/dashboard",
+        "https://portal.example.com/#/screens/school-control/",
+        "https://portal.example.com/#/dashboard",
       ],
     });
 
@@ -73,7 +73,7 @@ describe("summarizeAuthState", () => {
         permissionCount: null,
         menuPayload: null,
       },
-      currentUrl: "https://bmsys-test.cdyzyc.com/#/auth/login",
+      currentUrl: "https://portal.example.com/#/auth/login",
       currentTitle: "登录 - 芯安校园管理后台",
       candidateUrls: [],
     });
@@ -99,7 +99,7 @@ describe("recover_landing helpers", () => {
             data: { menus: [], permissions: [] },
           },
         },
-        ["https://bmsys-test.cdyzyc.com/#/screens/school-control/"],
+        ["https://portal.example.com/#/screens/school-control/"],
       ),
     ).toBe("authenticated_but_menu_empty");
   });
@@ -118,7 +118,7 @@ describe("recover_landing helpers", () => {
             data: { menus: [{ path: "/dashboard" }], permissions: ["view"] },
           },
         },
-        ["https://bmsys-test.cdyzyc.com/#/screens/school-control/"],
+        ["https://portal.example.com/#/screens/school-control/"],
       ),
     ).toBe("default_home_path_invalid");
   });
@@ -131,7 +131,7 @@ describe("recover_landing helpers", () => {
         responses: [
           {
             status: 200,
-            url: "https://api-test.cdyzyc.com/system/user/menus",
+            url: "https://api.example.com/system/user/menus",
             contentType: "application/json",
             bodySnippet: JSON.stringify({
               code: "000000",
@@ -143,21 +143,21 @@ describe("recover_landing helpers", () => {
         ],
         pageErrors: [],
       },
-      "https://bmsys-test.cdyzyc.com",
+      "https://portal.example.com",
     );
 
     expect(candidates).toEqual([
-      "https://bmsys-test.cdyzyc.com/#/dashboard",
-      "https://bmsys-test.cdyzyc.com/#/school/list",
+      "https://portal.example.com/#/dashboard",
+      "https://portal.example.com/#/school/list",
     ]);
   });
 
   it("normalizes route paths consistently", () => {
-    expect(normalizeCandidateUrl("https://bmsys-test.cdyzyc.com", "/dashboard")).toBe(
-      "https://bmsys-test.cdyzyc.com/#/dashboard",
+    expect(normalizeCandidateUrl("https://portal.example.com", "/dashboard")).toBe(
+      "https://portal.example.com/#/dashboard",
     );
-    expect(normalizeCandidateUrl("https://bmsys-test.cdyzyc.com", "#/school/list")).toBe(
-      "https://bmsys-test.cdyzyc.com/#/school/list",
+    expect(normalizeCandidateUrl("https://portal.example.com", "#/school/list")).toBe(
+      "https://portal.example.com/#/school/list",
     );
   });
 

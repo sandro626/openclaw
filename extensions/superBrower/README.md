@@ -59,8 +59,8 @@ For the current capability report, verified coverage, and known limits, see
           },
           "siteProfiles": [
             {
-              "id": "bmsys-test",
-              "urlPatterns": ["https://bmsys-test.cdyzyc.com/*"],
+              "id": "portal-example",
+              "urlPatterns": ["https://portal.example.com/*"],
               "fieldConfigs": [
                 {
                   "name": "username",
@@ -93,9 +93,9 @@ For the current capability report, verified coverage, and known limits, see
                 { "type": "title", "value": "404" }
               ],
               "postLoginCandidates": [
-                "https://bmsys-test.cdyzyc.com/#/",
-                "https://bmsys-test.cdyzyc.com/#/screens/school-control/",
-                "https://bmsys-test.cdyzyc.com/#/auth/login"
+                "https://portal.example.com/#/",
+                "https://portal.example.com/#/screens/school-control/",
+                "https://portal.example.com/#/auth/login"
               ]
             }
           ]
@@ -127,7 +127,7 @@ For the current capability report, verified coverage, and known limits, see
 
 ## Verified outcome
 
-`superBrower` has been validated on `bmsys-test.cdyzyc.com` for:
+`superBrower` has been validated on a Vben-style portal deployment for:
 
 - username/password login
 - agreement toggle

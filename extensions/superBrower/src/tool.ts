@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
-import type { AnyAgentTool } from "openclaw/plugin-sdk";
-import { stringEnum } from "../../../src/agents/schema/typebox.js";
+import { stringEnum } from "../api.js";
+import type { AnyAgentTool } from "../api.js";
 import type { SuperBrowerSiteProfile } from "./config-schema.js";
 import { SuperBrowerError } from "./errors.js";
 import { clickWithFallback, ensureVisibleAndClick } from "./executor.js";
@@ -111,6 +111,10 @@ type SuperBrowserParams = {
   }>;
 };
 
+type SuperBrowserActionResult = unknown;
+
+type SuperBrowerSignalState = "failure" | "success" | "unknown";
+
 export function createSuperBrowserTool(runtime: SuperBrowerRuntime): AnyAgentTool {
   return {
     name: "super_browser",
@@ -128,7 +132,10 @@ export function createSuperBrowserTool(runtime: SuperBrowerRuntime): AnyAgentToo
   } as AnyAgentTool;
 }
 
-async function executeAction(runtime: SuperBrowerRuntime, params: SuperBrowserParams) {
+async function executeAction(
+  runtime: SuperBrowerRuntime,
+  params: SuperBrowserParams,
+): Promise<SuperBrowserActionResult> {
   if (params.action === "list_site_profiles") {
     return runtime.config.siteProfiles.map((profile) => ({
       id: profile.id,
@@ -376,7 +383,10 @@ async function planTask(runtime: SuperBrowerRuntime, params: SuperBrowserParams)
   });
 }
 
-async function executeGoal(runtime: SuperBrowerRuntime, params: SuperBrowserParams) {
+async function executeGoal(
+  runtime: SuperBrowerRuntime,
+  params: SuperBrowserParams,
+): Promise<SuperBrowserActionResult> {
   const plan = await planTask(runtime, params);
   const results = [];
   for (const step of plan.steps) {
@@ -527,7 +537,10 @@ async function captureDiagnostics(runtime: SuperBrowerRuntime, params: SuperBrow
   });
 }
 
-async function runPlan(runtime: SuperBrowerRuntime, params: SuperBrowserParams) {
+async function runPlan(
+  runtime: SuperBrowerRuntime,
+  params: SuperBrowserParams,
+): Promise<SuperBrowserActionResult> {
   if (!params.steps?.length) {
     throw new SuperBrowerError("steps is required for run_plan");
   }
@@ -561,7 +574,13 @@ async function evaluateSignals(
   runtime: SuperBrowerRuntime,
   page: Awaited<ReturnType<SuperBrowerRuntime["getPage"]>>,
   profile: SuperBrowerSiteProfile | null,
-) {
+): Promise<{
+  state: SuperBrowerSignalState;
+  matchedSignal:
+    | SuperBrowerSiteProfile["successSignals"][number]
+    | SuperBrowerSiteProfile["failureSignals"][number]
+    | null;
+}> {
   if (!profile) {
     return { state: "unknown", matchedSignal: null };
   }

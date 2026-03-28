@@ -38,17 +38,19 @@ browser narration.
 
 ## Example
 
+站点相关账号、密码、OTP 不要写死在 profile JSON 或 skill 里，应通过 runtime 注入的环境变量传入。
+
 ```json
 {
   "action": "run_plan",
   "siteProfileId": "bmsys-test",
   "steps": [
-    { "action": "navigate", "url": "https://bmsys-test.cdyzyc.com/#/auth/login" },
-    { "action": "fill_fields", "name": "username", "value": "13688075515" },
-    { "action": "fill_fields", "name": "password", "value": "123456" },
+    { "action": "navigate", "url": "$BMSYS_TEST_URL" },
+    { "action": "fill_fields", "name": "username", "value": "$BMSYS_TEST_USERNAME" },
+    { "action": "fill_fields", "name": "password", "value": "$BMSYS_TEST_PASSWORD" },
     { "action": "toggle" },
     { "action": "click" },
-    { "action": "type_otp", "otp": "123456" },
+    { "action": "type_otp", "otp": "$BMSYS_TEST_OTP" },
     { "action": "detect_state" },
     { "action": "explain_auth_state" },
     { "action": "recover_landing" }

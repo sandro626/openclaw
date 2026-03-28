@@ -4,12 +4,9 @@ import { matchSiteProfile, urlMatchesPattern } from "./site-profiles.js";
 describe("urlMatchesPattern", () => {
   it("matches wildcard patterns", () => {
     expect(
-      urlMatchesPattern(
-        "https://bmsys-test.cdyzyc.com/#/auth/login",
-        "https://bmsys-test.cdyzyc.com/*",
-      ),
+      urlMatchesPattern("https://portal.example.com/#/auth/login", "https://portal.example.com/*"),
     ).toBe(true);
-    expect(urlMatchesPattern("https://example.com", "https://bmsys-test.cdyzyc.com/*")).toBe(false);
+    expect(urlMatchesPattern("https://example.com", "https://portal.example.com/*")).toBe(false);
   });
 });
 
@@ -17,7 +14,7 @@ describe("matchSiteProfile", () => {
   const profiles = [
     {
       id: "bmsys-test",
-      urlPatterns: ["https://bmsys-test.cdyzyc.com/*"],
+      urlPatterns: ["https://portal.example.com/*"],
       fieldConfigs: [],
       agreementSelectors: [],
       submitSelectors: [],
@@ -36,7 +33,7 @@ describe("matchSiteProfile", () => {
   });
 
   it("matches by url pattern", () => {
-    const result = matchSiteProfile(profiles, "https://bmsys-test.cdyzyc.com/#/auth/login");
+    const result = matchSiteProfile(profiles, "https://portal.example.com/#/auth/login");
     expect(result.profile?.id).toBe("bmsys-test");
     expect(result.matchedBy).toBe("url");
   });
