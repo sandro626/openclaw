@@ -1,12 +1,13 @@
 import type {
   ModelDefinitionConfig,
   ModelProviderConfig,
-} from "openclaw/plugin-sdk/provider-models";
+} from "openclaw/plugin-sdk/provider-model-shared";
+import { MINIMAX_API_BASE_URL } from "./model-definitions.js";
 import {
   MINIMAX_DEFAULT_MODEL_ID,
   MINIMAX_TEXT_MODEL_CATALOG,
   MINIMAX_TEXT_MODEL_ORDER,
-} from "openclaw/plugin-sdk/provider-models";
+} from "./provider-models.js";
 
 const MINIMAX_PORTAL_BASE_URL = "https://api.minimax.io/anthropic";
 const MINIMAX_DEFAULT_CONTEXT_WINDOW = 204800;
@@ -54,12 +55,17 @@ function buildMinimaxCatalog(): ModelDefinitionConfig[] {
   });
 }
 
-export function buildMinimaxProvider(): ModelProviderConfig {
+export function buildMinimaxProvider(
+  overrides: Partial<
+    Pick<ModelProviderConfig, "api" | "authHeader" | "baseUrl" | "headers" | "models">
+  > = {},
+): ModelProviderConfig {
   return {
-    baseUrl: MINIMAX_PORTAL_BASE_URL,
-    api: "anthropic-messages",
-    authHeader: true,
-    models: buildMinimaxCatalog(),
+    baseUrl: overrides.baseUrl?.trim() || MINIMAX_API_BASE_URL,
+    api: overrides.api ?? "anthropic-messages",
+    authHeader: overrides.authHeader ?? true,
+    ...(overrides.headers ? { headers: overrides.headers } : {}),
+    models: overrides.models?.length ? overrides.models : buildMinimaxCatalog(),
   };
 }
 

@@ -1,0 +1,33 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 18789,
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    }
+  },
+  "plugins": {
+    "enabled": true,
+    "load": {
+      "paths": []
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "minimax": {
+        "baseUrl": "${OPENCLAW_MINIMAX_BASE_URL:-https://api.minimaxi.com/anthropic}",
+        "api": "${OPENCLAW_MINIMAX_API:-anthropic-messages}",
+        "authHeader": true,
+        "models": []
+      }
+    }
+  },
+  "skills": {
+    "load": {
+      "extraDirs": []
+    }
+  }
+}

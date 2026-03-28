@@ -54,7 +54,7 @@ Configure via CLI:
     mode: "merge",
     providers: {
       minimax: {
-        baseUrl: "https://api.minimax.io/anthropic",
+        baseUrl: "https://api.minimaxi.com/anthropic",
         apiKey: "${MINIMAX_API_KEY}",
         api: "anthropic-messages",
         models: [
@@ -117,8 +117,8 @@ Use the interactive config wizard to set MiniMax without editing JSON:
 
 ## Configuration options
 
-- `models.providers.minimax.baseUrl`: prefer `https://api.minimax.io/anthropic` (Anthropic-compatible); `https://api.minimax.io/v1` is optional for OpenAI-compatible payloads.
-- `models.providers.minimax.api`: prefer `anthropic-messages`; `openai-completions` is optional for OpenAI-compatible payloads.
+- `models.providers.minimax.baseUrl`: prefer `https://api.minimaxi.com/anthropic` for CN keys; use `https://api.minimax.io/anthropic` for Global keys.
+- `models.providers.minimax.api`: use `anthropic-messages`.
 - `models.providers.minimax.apiKey`: MiniMax API key (`MINIMAX_API_KEY`).
 - `models.providers.minimax.models`: define `id`, `name`, `reasoning`, `contextWindow`, `maxTokens`, `cost`.
 - `agents.defaults.models`: alias models you want in the allowlist.
@@ -135,6 +135,15 @@ Use the interactive config wizard to set MiniMax without editing JSON:
 - See [/concepts/model-providers](/concepts/model-providers) for provider rules.
 - Use `openclaw models list` and `openclaw models set minimax/MiniMax-M2.7` to switch.
 
+## Production deploy notes
+
+- The bundled OpenClaw MiniMax API-key flow currently uses the Anthropic-compatible API path.
+- For live config, keep `models.providers.minimax.api = "anthropic-messages"`.
+- Match the endpoint to the key region:
+  - CN key -> `https://api.minimaxi.com/anthropic`
+  - Global key -> `https://api.minimax.io/anthropic`
+- If you update MiniMax code locally and redeploy, sync the whole `dist/` tree instead of only `dist/extensions/minimax/`. The bundled plugin may depend on shared chunks emitted at the `dist/` root.
+
 ## Troubleshooting
 
 ### "Unknown model: minimax/MiniMax-M2.7"
@@ -147,6 +156,8 @@ and no MiniMax auth profile/env key found). A fix for this detection is in
 - Running `openclaw configure` and selecting a **MiniMax** auth option, or
 - Adding the `models.providers.minimax` block manually, or
 - Setting `MINIMAX_API_KEY` (or a MiniMax auth profile) so the provider can be injected.
+
+If MiniMax returns `401 invalid api key`, verify the endpoint matches the key region. CN keys typically work with `https://api.minimaxi.com/anthropic`; Global keys use `https://api.minimax.io/anthropic`.
 
 Make sure the model id is **case‑sensitive**:
 

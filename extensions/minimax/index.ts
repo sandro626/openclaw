@@ -6,16 +6,13 @@ import {
 } from "openclaw/plugin-sdk/plugin-entry";
 import {
   MINIMAX_OAUTH_MARKER,
-  createProviderApiKeyAuthMethod,
   ensureAuthProfileStore,
   listProfilesForProvider,
 } from "openclaw/plugin-sdk/provider-auth";
 import { buildOauthProviderAuthResult } from "openclaw/plugin-sdk/provider-auth";
-import {
-  isMiniMaxModernModelId,
-  MINIMAX_DEFAULT_MODEL_ID,
-} from "openclaw/plugin-sdk/provider-models";
+import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-auth-api-key";
 import { fetchMinimaxUsage } from "openclaw/plugin-sdk/provider-usage";
+import { isMiniMaxModernModelId, MINIMAX_DEFAULT_MODEL_ID } from "./api.js";
 import {
   buildMinimaxImageGenerationProvider,
   buildMinimaxPortalImageGenerationProvider,
@@ -56,13 +53,24 @@ function buildPortalProviderCatalog(params: { baseUrl: string; apiKey: string })
 }
 
 function resolveApiCatalog(ctx: ProviderCatalogContext) {
+  const explicitProvider = ctx.config.models?.providers?.[API_PROVIDER_ID];
   const apiKey = ctx.resolveProviderApiKey(API_PROVIDER_ID).apiKey;
   if (!apiKey) {
     return null;
   }
   return {
     provider: {
-      ...buildMinimaxProvider(),
+      ...buildMinimaxProvider({
+        ...(typeof explicitProvider?.baseUrl === "string"
+          ? { baseUrl: explicitProvider.baseUrl.trim() }
+          : {}),
+        ...(typeof explicitProvider?.api === "string" ? { api: explicitProvider.api } : {}),
+        ...(typeof explicitProvider?.authHeader === "boolean"
+          ? { authHeader: explicitProvider.authHeader }
+          : {}),
+        ...(explicitProvider?.headers ? { headers: explicitProvider.headers } : {}),
+        ...(Array.isArray(explicitProvider?.models) ? { models: explicitProvider.models } : {}),
+      }),
       apiKey,
     },
   };
@@ -175,7 +183,7 @@ export default definePluginEntry({
           providerId: API_PROVIDER_ID,
           methodId: "api-global",
           label: "MiniMax API key (Global)",
-          hint: "Global endpoint - api.minimax.io",
+          hint: "Global Anthropic-compatible endpoint - api.minimax.io/anthropic",
           optionKey: "minimaxApiKey",
           flagName: "--minimax-api-key",
           envVar: "MINIMAX_API_KEY",
@@ -189,7 +197,7 @@ export default definePluginEntry({
           wizard: {
             choiceId: "minimax-global-api",
             choiceLabel: "MiniMax API key (Global)",
-            choiceHint: "Global endpoint - api.minimax.io",
+            choiceHint: "Global Anthropic-compatible endpoint - api.minimax.io/anthropic",
             groupId: "minimax",
             groupLabel: "MiniMax",
             groupHint: "M2.7 (recommended)",
@@ -199,7 +207,7 @@ export default definePluginEntry({
           providerId: API_PROVIDER_ID,
           methodId: "api-cn",
           label: "MiniMax API key (CN)",
-          hint: "CN endpoint - api.minimaxi.com",
+          hint: "CN Anthropic-compatible endpoint - api.minimaxi.com/anthropic",
           optionKey: "minimaxApiKey",
           flagName: "--minimax-api-key",
           envVar: "MINIMAX_API_KEY",
@@ -213,7 +221,7 @@ export default definePluginEntry({
           wizard: {
             choiceId: "minimax-cn-api",
             choiceLabel: "MiniMax API key (CN)",
-            choiceHint: "CN endpoint - api.minimaxi.com",
+            choiceHint: "CN Anthropic-compatible endpoint - api.minimaxi.com/anthropic",
             groupId: "minimax",
             groupLabel: "MiniMax",
             groupHint: "M2.7 (recommended)",
