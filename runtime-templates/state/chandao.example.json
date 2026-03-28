@@ -1,0 +1,13 @@
+{
+  "url": "https://chandao.example.com",
+  "accounts": {
+    "function-tester": {
+      "username": "function_tester",
+      "password": "change-me"
+    },
+    "pc-pctester": {
+      "username": "pc_pctester",
+      "password": "change-me"
+    }
+  }
+}

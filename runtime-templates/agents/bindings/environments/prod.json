@@ -1,0 +1,102 @@
+{
+  "bindings": [
+    {
+      "agentId": "pc-backend",
+      "match": {
+        "channel": "feishu",
+        "accountId": "backend"
+      }
+    },
+    {
+      "agentId": "pc-ceo_assistant",
+      "match": {
+        "channel": "feishu",
+        "accountId": "ceo_assistant"
+      }
+    },
+    {
+      "agentId": "pc-code_reviewer",
+      "match": {
+        "channel": "feishu",
+        "accountId": "code_reviewer"
+      }
+    },
+    {
+      "agentId": "pc-devops",
+      "match": {
+        "channel": "feishu",
+        "accountId": "devops"
+      }
+    },
+    {
+      "agentId": "pc-frontend",
+      "match": {
+        "channel": "feishu",
+        "accountId": "frontend"
+      }
+    },
+    {
+      "agentId": "pc-ip_expert",
+      "match": {
+        "channel": "feishu",
+        "accountId": "ip_expert"
+      }
+    },
+    {
+      "agentId": "pc-pctester",
+      "match": {
+        "channel": "feishu",
+        "accountId": "pctester"
+      }
+    },
+    {
+      "agentId": "pc-pm",
+      "match": {
+        "channel": "feishu",
+        "accountId": "pm"
+      }
+    },
+    {
+      "agentId": "pc-ai-pythondev",
+      "match": {
+        "channel": "feishu",
+        "accountId": "pythondev"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "yunxiao"
+      }
+    },
+    {
+      "agentId": "pc-yz-app-aidev",
+      "match": {
+        "channel": "feishu",
+        "accountId": "yz-app-aidev"
+      }
+    },
+    {
+      "agentId": "pc-yz-app-appdev",
+      "match": {
+        "channel": "feishu",
+        "accountId": "yz-app-appdev"
+      }
+    },
+    {
+      "agentId": "pc-yz-app-javadev",
+      "match": {
+        "channel": "feishu",
+        "accountId": "yz-app-javadev"
+      }
+    },
+    {
+      "agentId": "pc-yz-app-pm",
+      "match": {
+        "channel": "feishu",
+        "accountId": "yz-app-pm"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "agents": {
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "Main Staging",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/main"
+      }
+    ]
+  }
+}

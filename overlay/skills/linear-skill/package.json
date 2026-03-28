@@ -1,0 +1,29 @@
+{
+  "name": "linear-skill",
+  "version": "1.0.0",
+  "description": "Linear project management skill for Claude Code and OpenClaw",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "issue-tracking",
+    "linear",
+    "openclaw",
+    "project-management",
+    "skill"
+  ],
+  "homepage": "https://github.com/MaTriXy/linear-skill#readme",
+  "bugs": {
+    "url": "https://github.com/MaTriXy/linear-skill/issues"
+  },
+  "license": "MIT",
+  "author": "Yossi elkrief <elkriefy@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaTriXy/linear-skill.git"
+  },
+  "main": "scripts/linear-cli.js",
+  "scripts": {
+    "install": "cd scripts && npm install",
+    "postinstall": "echo '\n✅ Linear skill installed successfully!\n\n📝 Next steps:\n1. Get your Linear API key from: https://linear.app/settings/api\n2. Set LINEAR_API_KEY environment variable\n3. Start using Linear with Claude Code or OpenClaw\n'"
+  }
+}

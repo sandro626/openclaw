@@ -1,0 +1,9 @@
+{
+  "meta": {
+    "environment": "staging",
+    "deployedBy": "${OPENCLAW_DEPLOY_OPERATOR:-unknown}"
+  },
+  "gateway": {
+    "port": 18790
+  }
+}

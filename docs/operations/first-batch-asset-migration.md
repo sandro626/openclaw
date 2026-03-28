@@ -47,6 +47,12 @@
 3. 将运行态账号、agent 绑定、启用配置规划到 `runtime-templates/extensions/`
 4. 在 `overlay/extensions/feishu/` 建立私有定制接收位
 
+当前仓库进度：
+
+- 当前正式实现真源以 `extensions/feishu/` 为准
+- `server-config/extensions/feishu/` 已退出当前活跃树，只保留归档说明
+- `overlay/extensions/feishu/` 仍为预留接收位，未作为活跃插件装配
+
 ### 2. WeCom
 
 当前候选来源：
@@ -68,6 +74,11 @@
 3. 将 WeCom 运行态模板规划到 `runtime-templates/extensions/`
 4. 在 `overlay/extensions/wecom/` 建立私有定制接收位
 
+当前仓库进度：
+
+- `overlay/extensions/wecom/` 已建立并承接当前接收位
+- `server-config/extensions/wecom/` 已退出当前活跃树，只保留归档说明
+
 ### 3. `server-config/skills`
 
 当前判断：
@@ -81,7 +92,15 @@
 1. 把其中业务技能视为 `overlay/skills/` 候选
 2. 把其中真正的模板输入规划到 `runtime-templates/skills/`
 3. 把带 `.git` 或明显外部整包的目录单独标记为外部来源
-4. 暂不删除 `server-config/skills`，等映射完成后再做迁移
+4. 以“先归档、再迁位、最后 README 收口”的方式让 `server-config/skills` 退出活跃树
+
+当前仓库进度：
+
+- 第一批与 `overlay/skills/*` 等价的技能目录已退出当前活跃树并完成归档
+- 飞书组与工作流组中的 `feishu-contacts`、`feishu-doc-guide`、`lark-integration`、`dingtalk-feishu-cn`、`automation-workflows`、`manage-platform-test` 已正式迁入 `overlay/skills/*`
+- agent 协作组中的 `agent-council`、`agent-orchestrator` 已正式迁入 `overlay/skills/*`
+- 剩余顶层可加载技能也已迁入 `overlay/skills/*` 顶层
+- 当前 `server-config/skills/*` 已只保留归档说明，不再承载活跃源码
 
 ## 目标目录
 
@@ -146,9 +165,21 @@
 - runtime 模板
 - 外部整包或归档资产
 
+这一步在仓库层已完成：
+
+- 活跃技能源码已从 `server-config/skills/*` 迁出
+- 当前活跃真源已明确到 `overlay/skills/*` 或 `skills/*`
+- `server-config/skills/*` 已统一退成历史入口说明
+
 ### 3. 最后才处理 agent 模板
 
-等扩展和技能的落点稳定后，再把 agent 静态定义和运行态模板补到对应目录。
+仓库层这一步已经完成：
+
+- agent 静态定义已收口到 `overlay/agents/`
+- 可模板化默认配置已进入 `runtime-templates/agents/`
+- `server-config/agents` 已退出当前活跃树
+
+后续只剩服务器 runtime 对位和历史备份治理。
 
 ## 验收标准
 

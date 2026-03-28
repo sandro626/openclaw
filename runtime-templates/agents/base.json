@@ -1,0 +1,24 @@
+{
+  "agents": {
+    "defaults": {
+      "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/main",
+      "model": {
+        "primary": "minimax/MiniMax-M2.7"
+      },
+      "imageModel": {
+        "primary": "zai/glm-4.6v",
+        "fallbacks": []
+      },
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "timeoutSeconds": 1800,
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8,
+        "maxSpawnDepth": 2,
+        "maxChildrenPerAgent": 5
+      }
+    }
+  }
+}

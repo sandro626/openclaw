@@ -72,11 +72,8 @@ ceb5bf8409 feat: 升级到上游 openclaw 2026.2.25 并保留本地扩展
 ├─────────────────────────────────────────────────────────────┤
 │  overlay/                                                     │
 │  ├── extensions/                                              │
-│  │   ├── feishu/          # 飞书扩展 (业务定制)              │
-│  │   ├── wecom/           # 企业微信扩展 (业务定制)          │
-│  │   ├── mysql-readonly/  # MySQL 只读扩展                  │
-│  │   ├── superBrower/     # 超级浏览器扩展                   │
-│  │   └── zentao/          # 禅道扩展                        │
+│  │   ├── feishu/          # 飞书预留接收位                  │
+│  │   └── wecom/           # 企业微信私有分叉                 │
 │  ├── skills/                                                  │
 │  │   ├── browser-use/     # 浏览器自动化技能                │
 │  │   ├── dev-openclaw/    # 开发助手技能                    │
@@ -112,17 +109,36 @@ ceb5bf8409 feat: 升级到上游 openclaw 2026.2.25 并保留本地扩展
 
 ---
 
+### 2.2 根目录例外项
+
+不是所有顶层目录都属于三层真源本体。当前应这样理解：
+
+- `runtime-templates/` 是模板层，不是真 runtime
+- `deploy/` 是装配辅助层，不是资产真源
+- `server-config/` 已退成归档入口说明，不再承担源码或 runtime 真源职责
+- `.artifacts/` 是本地装配产物、归档和临时整理区
+- `Swabble/` 是并列维护的独立子项目，暂不纳入 `core/overlay/runtime` 迁移计划
+
+如果某个目录既不属于以上例外项，也不属于 `extensions/`、`skills/`、`overlay/`、`runtime-templates/`、`deploy/` 等正式层级，就不应长期留在仓库根目录。
+
+当前已用 hook 约束的边界：
+
+- `pnpm check:repo-layering`
+- `git-hooks/pre-commit` 通过 `pnpm check` 自动执行
+
+---
+
 ## 三、私有资产清单
 
 ### 3.1 私有扩展 (extensions/)
 
-| 扩展名           | 说明           | 来源                | 迁移目标                          |
-| ---------------- | -------------- | ------------------- | --------------------------------- |
-| `feishu`         | 飞书消息通道   | 本地开发 + 上游合并 | overlay/extensions/feishu         |
-| `wecom`          | 企业微信通道   | 本地开发            | overlay/extensions/wecom          |
-| `mysql-readonly` | MySQL 只读工具 | 本地开发            | overlay/extensions/mysql-readonly |
-| `superBrower`    | 浏览器自动化   | 本地开发            | overlay/extensions/superBrower    |
-| `zentao`         | 禅道集成       | 本地开发            | overlay/extensions/zentao         |
+| 扩展名           | 说明           | 当前真源                    | overlay 状态           |
+| ---------------- | -------------- | --------------------------- | ---------------------- |
+| `feishu`         | 飞书消息通道   | `extensions/feishu`         | 预留接收位             |
+| `wecom`          | 企业微信通道   | `overlay/extensions/wecom`  | 私有分叉，默认显式加载 |
+| `mysql-readonly` | MySQL 只读工具 | `extensions/mysql-readonly` | overlay 过时副本已退休 |
+| `superBrower`    | 浏览器自动化   | `extensions/superBrower`    | overlay 过时副本已退休 |
+| `zentao`         | 禅道集成       | `extensions/zentao`         | overlay 过时副本已退休 |
 
 ### 3.2 私有技能 (skills/)
 
@@ -141,7 +157,7 @@ ceb5bf8409 feat: 升级到上游 openclaw 2026.2.25 并保留本地扩展
 | 技能组           | 技能列表                                                                                    |
 | ---------------- | ------------------------------------------------------------------------------------------- |
 | **飞书套件**     | feishu-contacts, feishu-doc-guide, feishu-doc-manager, lark-integration, dingtalk-feishu-cn |
-| **记忆系统**     | memory, memory-lite, hippocampus-memory                                                     |
+| **记忆系统**     | memory, memory-lite（历史别名：hippocampus-memory）                                         |
 | **主动代理**     | proactive-agent, self-improving-agent, agent-council, agent-orchestrator                    |
 | **自动化工作流** | automation-workflows                                                                        |
 | **阿里云**       | aliyun-oss-upload                                                                           |
@@ -152,7 +168,7 @@ ceb5bf8409 feat: 升级到上游 openclaw 2026.2.25 并保留本地扩展
 
 ### 3.4 Agent 定义
 
-从 `server-config/agents/` 迁移到 `overlay/agents/`：
+仓库层已完成从 `server-config/agents/` 到 `overlay/agents/` / `runtime-templates/agents/` 的归位：
 
 ```
 main, cto, dev, tester, ops
@@ -160,6 +176,12 @@ pc-backend, pc-frontend, pc-devops
 pc-ceo_assistant, pc-code_reviewer, pc-pctester
 pc-ip_expert, pc-pm, pctester
 ```
+
+当前原则：
+
+- `overlay/agents/<id>/workspace/` 只保留静态骨架
+- `runtime-templates/agents/<id>/config.patch.json` 承载可模板化默认配置
+- `server-config/agents/` 不再作为活跃真源
 
 ---
 
@@ -247,13 +269,13 @@ git remote -v
 
 ### Phase 2: 私有资产迁移 (Day 2-3)
 
-- [ ] 迁移 extensions/feishu → overlay/extensions/feishu
-- [ ] 迁移 extensions/wecom → overlay/extensions/wecom
-- [ ] 迁移 extensions/mysql-readonly → overlay/extensions/mysql-readonly
-- [ ] 迁移 extensions/superBrower → overlay/extensions/superBrower
-- [ ] 迁移 extensions/zentao → overlay/extensions/zentao
+- [x] 保留 `overlay/extensions/feishu` 作为预留接收位
+- [x] 收口 `overlay/extensions/wecom` 作为当前显式加载的私有分叉
+- [x] 退休 `overlay/extensions/mysql-readonly` 过时副本
+- [x] 退休 `overlay/extensions/superBrower` 过时副本
+- [x] 退休 `overlay/extensions/zentao` 过时副本
 - [ ] 迁移私有 skills → overlay/skills/
-- [ ] 迁移 server-config/agents → overlay/agents/
+- [x] 迁移 server-config/agents → overlay/agents/ / runtime-templates/agents/
 
 ### Phase 3: 从服务器同步资产 (Day 3-4)
 

@@ -2,7 +2,7 @@
 
 ## 概述
 
-此机制确保部署操作不会清除 Agent 的记忆和会话数据。所有备份都存储在 `/data/backup/openclaw/`。
+此机制确保部署操作不会清除 Agent 的记忆和会话数据。示例中的备份根目录使用 `${BACKUP_ROOT:-/srv/openclaw-backups/openclaw}`。
 
 ## 核心原则
 
@@ -13,11 +13,12 @@
 ## 受保护的目录
 
 ```
-/root/.openclaw/
+${OPENCLAW_HOME:-~/.openclaw}/
 ├── agents/{agent_id}/
-│   ├── sessions/       # 会话数据 - 禁止删除
-│   ├── memory/         # 记忆数据 - 禁止删除
-│   └── workspace/      # 工作空间 - 禁止删除
+│   └── sessions/       # 会话数据 - 禁止删除
+├── workspace/{agent_id}/
+│   ├── memory/         # 工作区记忆 - 禁止删除
+│   └── ...             # 工作空间输出 - 禁止删除
 ├── memory/             # 全局记忆 - 禁止删除
 └── openclaw.json       # 主配置 - 更新前备份
 ```
@@ -25,7 +26,7 @@
 ## 备份目录结构
 
 ```
-/data/backup/openclaw/
+${BACKUP_ROOT:-/srv/openclaw-backups/openclaw}/
 ├── agents/              # Agent 备份
 │   ├── main_20260301/
 │   ├── pc-pctester_20260301/
@@ -42,29 +43,31 @@
 ## 部署前操作清单
 
 ```bash
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+BACKUP_ROOT="${BACKUP_ROOT:-/srv/openclaw-backups/openclaw}"
+
 # 1. 创建备份目录
-mkdir -p /data/backup/openclaw/{agents,config,memory,logs}
+mkdir -p "${BACKUP_ROOT}"/{agents,config,memory,logs}
 
 # 2. 备份配置文件
-cp /root/.openclaw/openclaw.json /data/backup/openclaw/config/openclaw_$(date +%Y%m%d_%H%M%S).json
+cp "$OPENCLAW_HOME/openclaw.json" "${BACKUP_ROOT}/config/openclaw_$(date +%Y%m%d_%H%M%S).json"
 
 # 3. 备份所有 agents 的会话数据
-for agent_dir in /root/.openclaw/agents/*/; do
+for agent_dir in "$OPENCLAW_HOME"/agents/*/; do
     agent_id=$(basename "$agent_dir")
-    backup_dir="/data/backup/openclaw/agents/${agent_id}_$(date +%Y%m%d_%H%M%S)"
+    backup_dir="${BACKUP_ROOT}/agents/${agent_id}_$(date +%Y%m%d_%H%M%S)"
     mkdir -p "$backup_dir"
 
     # 只备份关键目录，不删除原文件
     [ -d "${agent_dir}/sessions" ] && cp -r "${agent_dir}/sessions" "$backup_dir/"
-    [ -d "${agent_dir}/memory" ] && cp -r "${agent_dir}/memory" "$backup_dir/"
-    [ -d "${agent_dir}/workspace" ] && cp -r "${agent_dir}/workspace" "$backup_dir/"
+    [ -d "${OPENCLAW_HOME}/workspace/${agent_id}" ] && cp -r "${OPENCLAW_HOME}/workspace/${agent_id}" "$backup_dir/workspace"
 done
 
 # 4. 备份全局记忆
-cp -r /root/.openclaw/memory /data/backup/openclaw/memory_$(date +%Y%m%d_%H%M%S)/
+cp -r "$OPENCLAW_HOME/memory" "${BACKUP_ROOT}/memory_$(date +%Y%m%d_%H%M%S)/"
 
 # 5. 记录部署日志
-echo "$(date): Pre-deploy backup completed" >> /data/backup/openclaw/logs/deploy.log
+echo "$(date): Pre-deploy backup completed" >> "${BACKUP_ROOT}/logs/deploy.log"
 ```
 
 ## 部署后恢复（如需要）
@@ -73,12 +76,15 @@ echo "$(date): Pre-deploy backup completed" >> /data/backup/openclaw/logs/deploy
 # 恢复特定 agent 的会话数据
 restore_agent() {
     local agent_id=$1
-    local agent_dir="/root/.openclaw/agents/${agent_id}"
-    local backup_dir="/data/backup/openclaw/agents/${agent_id}_LATEST"
+    local openclaw_home="${OPENCLAW_HOME:-$HOME/.openclaw}"
+    local backup_root="${BACKUP_ROOT:-/srv/openclaw-backups/openclaw}"
+    local agent_dir="${openclaw_home}/agents/${agent_id}"
+    local workspace_dir="${openclaw_home}/workspace/${agent_id}"
+    local backup_dir="${backup_root}/agents/${agent_id}_LATEST"
 
     # 只恢复不存在的目录，不覆盖现有数据
     [ ! -d "${agent_dir}/sessions" ] && [ -d "${backup_dir}/sessions" ] && cp -r "${backup_dir}/sessions" "${agent_dir}/"
-    [ ! -d "${agent_dir}/memory" ] && [ -d "${backup_dir}/memory" ] && cp -r "${backup_dir}/memory" "${agent_dir}/"
+    [ ! -d "${workspace_dir}" ] && [ -d "${backup_dir}/workspace" ] && cp -r "${backup_dir}/workspace" "${workspace_dir}"
 }
 
 # 恢复所有 agents
@@ -90,17 +96,19 @@ done
 ## 禁止的操作
 
 ```bash
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+
 # ❌ 禁止：删除会话目录
-rm -rf /root/.openclaw/agents/*/sessions
+rm -rf "${OPENCLAW_HOME}"/agents/*/sessions
 
 # ❌ 禁止：删除记忆文件
-rm -rf /root/.openclaw/memory/*.sqlite
+rm -rf "${OPENCLAW_HOME}"/memory/*.sqlite
 
 # ❌ 禁止：清空 sessions.json
-echo '{}' > /root/.openclaw/agents/*/sessions/sessions.json
+echo '{}' > "${OPENCLAW_HOME}"/agents/*/sessions/sessions.json
 
 # ❌ 禁止：不备份直接修改配置
-# 必须先备份到 /data/backup
+# 必须先备份到 ${BACKUP_ROOT}
 ```
 
 ## 服务操作规范
@@ -117,8 +125,11 @@ nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-
 ### 更新 openclaw
 
 ```bash
+OPENCLAW_HOME="${OPENCLAW_HOME:-$HOME/.openclaw}"
+BACKUP_ROOT="${BACKUP_ROOT:-/srv/openclaw-backups/openclaw}"
+
 # 1. 备份配置
-cp /root/.openclaw/openclaw.json /data/backup/openclaw/config/openclaw_$(date +%Y%m%d_%H%M%S).json
+cp "$OPENCLAW_HOME/openclaw.json" "${BACKUP_ROOT}/config/openclaw_$(date +%Y%m%d_%H%M%S).json"
 
 # 2. 更新软件
 sudo npm i -g openclaw@latest
@@ -133,7 +144,7 @@ nohup openclaw gateway run --bind loopback --port 18789 --force > /tmp/openclaw-
 
 ## 服务器信息
 
-- **生产服务器**: `ssh root@8.155.165.162`
+- **网关主机**: `ssh user@gateway-host`
 - **网关日志**: `/tmp/openclaw-gateway.log`
 - **网关端口**: 18789
-- **备份目录**: `/data/backup/openclaw/`
+- **备份目录**: `${BACKUP_ROOT:-/srv/openclaw-backups/openclaw}`

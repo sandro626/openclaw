@@ -1,0 +1,8 @@
+{
+  "aliases": {
+    "hippocampus-memory": "memory"
+  },
+  "externalProvided": ["*", "analyze", "build", "claude-code-task", "git", "test", "troubleshoot"],
+  "runtimeOnly": [],
+  "configOnly": []
+}

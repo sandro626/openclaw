@@ -16,6 +16,7 @@
 - [Runtime Unification](/operations/runtime-unification)
 - [Runtime Unification Checklist](/operations/runtime-unification-checklist)
 - [Deploy Protection](/operations/deploy-protection)
+- [Production Runtime Migration Runbook](/operations/production-runtime-migration-runbook)
 
 ## 适用场景
 
@@ -76,6 +77,15 @@
 - sessions 路径
 - memory 索引路径
 - 最近一次 memory sync 或索引更新时间
+
+如果当前环境已经进入三层收口阶段，优先用仓库里的只读审计脚本生成这份盘点：
+
+```bash
+pnpm ops:audit-runtime-layout -- \
+  --runtime-root "$HOME/.openclaw" \
+  --environment prod \
+  --write-file .artifacts/ops/prod-runtime-layout.json
+```
 
 如果同一个 agent 对应多个目录，优先选择“最近仍有写入、且配置计划要指向”的目录作为主目录，其余视为候选旧目录。
 
@@ -258,6 +268,88 @@ workspace 必须始终位于独立的运行态目录，不应放在应用源码�
 ## 后续治理
 
 完成一次迁移后，应把以下动作纳入常规运维：
+
+## 当前服务器最新核查
+
+### 当前生产 agent 与 workspace memory 对位情况
+
+按最新服务器真实配置核查，当前生产配置共有 `26` 条 agent 配置项，去重后为 `22` 个唯一 agent。它们现在都已经在规范路径 `~/.openclaw/workspace/<agentId>/memory` 下看到 memory 目录：
+
+- `main`
+- `cto`
+- `dev`
+- `tester`
+- `ops`
+- `pc-pm`
+- `pc-ai-pythondev`
+- `pc-backend`
+- `pc-frontend`
+- `pc-pctester`
+- `pc-yz-app-pm`
+- `pc-yz-app-javadev`
+- `pc-yz-app-appdev`
+- `pc-yz-app-aidev`
+- `pc-devops`
+- `pc-ceo_assistant`
+- `pc-code_reviewer`
+- `pc-ip_expert`
+- `yz-app-pm`
+- `yz-app-javadev`
+- `yz-app-appdev`
+- `yz-app-aidev`
+
+当前 `needsLegacyMemoryReviewCount = 0`。这说明活跃 agent 的 memory 文件层已经完成对位，后续重点不再是补迁 memory，而是清理观察期内仍保留的 legacy 副本和服务器配置里的重复 agent 条目。
+
+### 服务器仍存在的 legacy workspace 目录
+
+最新服务器审计结果里，legacy `workspace-*` 目录仍处于观察期保留状态，当前总数为 `14`。其中包括：
+
+- `workspace-pc-ai-pythondev`
+- `workspace-pc-backend`
+- `workspace-pc-ceo_assistant`
+- `workspace-pc-code_reviewer`
+- `workspace-pc-devops`
+- `workspace-pc-frontend`
+- `workspace-pc-ip_expert`
+- `workspace-pc-pctester`
+- `workspace-pc-yz-app-aidev`
+- `workspace-pc-yz-app-appdev`
+- `workspace-pc-yz-app-javadev`
+- `workspace-pc-yz-app-pm`
+- `workspace-yz-app-javadev`
+- `workspace-yz-app-pm`
+
+其中包含两类：
+
+- 与当前生产唯一 agent 同名的旧目录，当前仅作为观察期保留副本存在，不再是活跃写入路径
+- `yz-app-*` 与 `pc-yz-app-*` 不是历史实验 agent，它们是当前需要保留的用户或业务角色；后续如果清理 legacy 目录，也应以它们的规范路径 `workspace/<agentId>` 为准，而不是把 agent 本身归档掉
+- `workspace-pc-pythondev` 只是 `pc-ai-pythondev` 的旧别名目录，已在前一轮迁移中归档，不再属于当前活跃 runtime 观察集
+
+### 当前仍可见的 legacy memory 目录
+
+服务器上仍可见以下 `workspace-*/memory` 目录，这些目录当前主要用于观察和最终清理：
+
+- `workspace-pc-ai-pythondev/memory`
+- `workspace-pc-backend/memory`
+- `workspace-pc-ceo_assistant/memory`
+- `workspace-pc-code_reviewer/memory`
+- `workspace-pc-devops/memory`
+- `workspace-pc-frontend/memory`
+- `workspace-pc-ip_expert/memory`
+- `workspace-pc-pctester/memory`
+- `workspace-pc-yz-app-aidev/memory`
+- `workspace-pc-yz-app-appdev/memory`
+- `workspace-pc-yz-app-javadev/memory`
+- `workspace-pc-yz-app-pm/memory`
+- `workspace-yz-app-javadev/memory`
+- `workspace-yz-app-pm/memory`
+
+这说明服务器侧的下一步重点不是继续改 repo，而是：
+
+1. 在观察窗口结束前继续保留这些 legacy memory 目录作为回滚面
+2. 用 `ops:audit-runtime-layout --config-path` 继续核查是否仍有新写入落在 legacy 目录
+3. 只清理重复副本和重复配置项，不要误删 `yz-app-*`、`pc-yz-app-*`、`pc-ai-pythondev` 这些当前仍在生产配置里的 agent
+4. 观察期结束后，再移除 legacy 目录并把服务器配置里的重复 `yz-app-*` 条目收成唯一列表
 
 - 发布前检查所有 agent 的 workspace 唯一性
 - 发布后检查最近写入是否全部落到目标目录

@@ -241,6 +241,138 @@ openclaw-overlay/
 config-templates/openclaw.base.json
 ```
 
+## 阶段 5：发布与 live 校验
+
+### 目标
+
+避免把“本地已修好”误判成“live 已切好”。
+
+### Checklist
+
+1. 服务器只保留现有那一套 OpenClaw 代码树，不额外再起第二套目录
+2. 本地完成 `pnpm build`
+3. 部署时同步整棵 `dist/`，不要只同步单个 extension 构建目录
+4. 渲染后的 live 配置显式写出关键 provider 参数，而不是依赖默认值
+5. provider 的 endpoint 与 key 区域先做官方接口验证
+6. 更新 systemd env / drop-in 后执行 `daemon-reload + restart`
+7. 重启后至少执行：
+   - `openclaw plugins list`
+   - `openclaw models list`
+   - `openclaw channels status --probe`
+   - `openclaw agent --agent main ...`
+   - 一个 `pc-*` smoke
+   - 一个 `yz-app-*` smoke
+
+### MiniMax 补充规则
+
+- 当前仓库里的 MiniMax API-key 路线按 Anthropic-compatible 接口走
+- CN key 应对位 `https://api.minimaxi.com/anthropic`
+- Global key 应对位 `https://api.minimax.io/anthropic`
+- 如果 `CN=200 / Global=401`，应判定为 endpoint 区域不匹配，不要先回退模型版本
+
+## 附录：2026-03-28 Upstream 升级准备快照
+
+### 当前基线
+
+按 `2026-03-28` 的本地核查结果：
+
+- 本地当前分支：`main`
+- 本地当前提交：`753933c6f15df182c1640bd8268531177ad7e257`
+- 本地当前版本：`2026.3.24`
+- 最新 `upstream/main`：`1c833b1eb5ca12e2f4f8c6c40340bf34425b1a63`
+- 最新 `upstream/main` 版本：`2026.3.27`
+
+当前分叉计数：
+
+- 本地领先 upstream：`1` 个提交
+- upstream 领先本地：`1033` 个提交
+
+说明当前仓库不是最新 upstream 基线，后续仍需做一次正式升级整合。
+
+### 当前唯一本地基线提交
+
+当前本地相对 `upstream/main` 唯一的分叉提交是：
+
+- `753933c6f1 feat: 添加 overlay 私有资产层`
+
+这说明当前三层改造本质上仍属于“一次大分叉提交 + 后续大量未提交工作树整理”的状态。
+
+### upstream 未直接触碰的三层治理区域
+
+按 `merge-base..upstream/main` 的文件核查，以下区域当前没有直接来自 upstream 的文件改动：
+
+- `docs/operations/`
+- `overlay/`
+- `runtime-templates/`
+- `extensions/wecom/`
+- `extensions/mysql-readonly/`
+- `extensions/superBrower/`
+- `extensions/zentao/`
+- `scripts/check-repo-layering.mjs`
+- `scripts/assemble-runtime-bundle.mjs`
+- `scripts/seed-agent-workspaces.mjs`
+- `scripts/audit-overlay-agents.mjs`
+
+这意味着三层分层本身与 upstream 的直接文本冲突面不大。
+
+### 当前真实冲突热点
+
+本地脏工作树与 `upstream/main` 当前同时改动的真实热点只有 6 个文件：
+
+- `package.json`
+- `pnpm-lock.yaml`
+- `scripts/lib/plugin-sdk-entrypoints.json`
+- `scripts/stage-bundled-plugin-runtime-deps.mjs`
+- `src/plugins/bundled-plugin-metadata.generated.ts`
+- `src/plugins/copy-bundled-plugin-metadata.test.ts`
+
+其中风险最高的是：
+
+- `scripts/stage-bundled-plugin-runtime-deps.mjs`
+- `src/plugins/bundled-plugin-metadata.generated.ts`
+- `package.json`
+- `pnpm-lock.yaml`
+
+因为 upstream 在这一阶段对 plugin runtime、plugin-sdk surface、bundled metadata 和依赖图做了连续改动。
+
+### 升级风险判断
+
+当前升级风险判断为“中等”：
+
+- 三层目录治理主体与 upstream 直接冲突较少
+- 但 `src/plugins/` 与 `src/plugin-sdk/` 在 upstream 中变动非常大
+- 本地刚好也在 plugin runtime deps 与 plugin metadata 生成链路上有改动
+
+因此升级不是“目录层大冲突”，而是“插件装配与元数据链路需要人工对位”。
+
+### 推荐升级顺序
+
+1. 先把当前三层治理相关工作树收口成可追踪基线
+2. 单独做一次 `upstream/main` 对齐，不与服务器 runtime 迁移混做
+3. 优先人工处理上述 6 个热点文件
+4. 重新生成 plugin metadata / sdk 导出快照
+5. 再跑一轮本地 gate
+
+### 推荐验证命令
+
+升级整合完成后，至少执行：
+
+```bash
+pnpm check
+pnpm build
+pnpm check:repo-layering
+pnpm ops:assemble -- --output-root .artifacts/ops/post-upstream --environment prod --allow-unresolved-env
+```
+
+### 结论
+
+当前仓库已经具备升级准备条件，但不建议在脏工作树上直接硬 rebase。
+
+最稳的方式是：
+
+- 先让三层治理本身形成一个清晰基线
+- 再把 upstream 升级作为独立动作处理
+
 #### 环境覆盖
 
 ```text

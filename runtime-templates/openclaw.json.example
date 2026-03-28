@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "environment": "prod",
+    "deployedBy": "${OPENCLAW_DEPLOY_OPERATOR:-unknown}"
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "port": 18789,
+    "auth": {
+      "mode": "token",
+      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+    }
+  },
+  "plugins": {
+    "enabled": true,
+    "load": {
+      "paths": [
+        "${OPENCLAW_OVERLAY_ROOT}/extensions/wecom"
+      ]
+    },
+    "entries": {
+      "mysql-readonly": {
+        "enabled": false,
+        "config": {
+          "host": "127.0.0.1",
+          "port": 3306,
+          "user": "openclaw_ro",
+          "password": "${MYSQL_READONLY_PASSWORD}",
+          "database": "${MYSQL_READONLY_DATABASE}"
+        }
+      },
+      "zentao": {
+        "enabled": false,
+        "config": {
+          "baseUrl": "${ZENTAO_BASE_URL:-https://chandao.example.com}",
+          "apiVersion": "v1",
+          "mode": "read-only"
+        }
+      }
+    }
+  },
+  "skills": {
+    "load": {
+      "extraDirs": [
+        "${OPENCLAW_OVERLAY_ROOT}/skills"
+      ]
+    },
+    "entries": {
+      "manage-platform-test": {
+        "enabled": true,
+        "env": {
+          "BMSYS_TEST_URL": "https://portal.example.com/",
+          "BMSYS_TEST_USERNAME": "${BMSYS_TEST_USERNAME}",
+          "BMSYS_TEST_PASSWORD": "${BMSYS_TEST_PASSWORD}",
+          "BMSYS_TEST_OTP": "${BMSYS_TEST_OTP:-123456}"
+        }
+      },
+      "chandao": {
+        "enabled": true,
+        "env": {
+          "CHANDAO_URL": "https://chandao.example.com",
+          "CHANDAO_USERNAME": "${CHANDAO_USERNAME}",
+          "CHANDAO_PASSWORD": "${CHANDAO_PASSWORD}"
+        }
+      },
+      "feishu-contacts": {
+        "env": {
+          "FEISHU_APP_ID": "${FEISHU_APP_ID}",
+          "FEISHU_APP_SECRET": "${FEISHU_APP_SECRET}",
+          "FEISHU_ACCOUNT": "${FEISHU_ACCOUNT:-}",
+          "FEISHU_ACCOUNTS_CONFIG": "${FEISHU_ACCOUNTS_CONFIG:-}",
+          "FEISHU_CONTACTS_DATA_DIR": "${FEISHU_CONTACTS_DATA_DIR:-}",
+          "FEISHU_CONTACTS_SHARED_DIR": "${FEISHU_CONTACTS_SHARED_DIR:-}",
+          "FEISHU_CONTACTS_LOG_FILE": "${FEISHU_CONTACTS_LOG_FILE:-}",
+          "FEISHU_CONTACTS_DOC_URL": "${FEISHU_CONTACTS_DOC_URL:-}"
+        }
+      },
+      "linear": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "LINEAR_API_KEY"
+        }
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/main"
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "Main",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/main"
+      },
+      {
+        "id": "ops",
+        "name": "Ops",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/ops"
+      }
+    ]
+  }
+}

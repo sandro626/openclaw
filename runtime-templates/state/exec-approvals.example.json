@@ -1,0 +1,9 @@
+{
+  "agents": {},
+  "defaults": {},
+  "socket": {
+    "path": "~/.openclaw/exec-approvals.sock",
+    "token": "generate-at-runtime"
+  },
+  "version": 0
+}

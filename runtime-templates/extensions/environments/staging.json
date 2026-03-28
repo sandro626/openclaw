@@ -1,0 +1,12 @@
+{
+  "plugins": {
+    "entries": {
+      "mysql-readonly": {
+        "enabled": false
+      },
+      "zentao": {
+        "enabled": false
+      }
+    }
+  }
+}

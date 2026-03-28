@@ -13,3 +13,9 @@
 - 真实 appId、appSecret、tenant 配置
 - 真实账号绑定
 - 运行态 webhook 或 token
+
+当前状态：
+
+- 当前正式实现真源在 `extensions/feishu/`
+- 这里仍是预留接收位，不是活跃插件目录
+- 在补齐 `openclaw.plugin.json` / `package.json` 之前，装配脚本会跳过它，不会加入 `plugins.load.paths`

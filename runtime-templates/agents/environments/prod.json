@@ -1,0 +1,547 @@
+{
+  "agents": {
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "主助手",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/main",
+        "skills": [
+          "*",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search"
+        ],
+        "subagents": {
+          "allowAgents": ["cto"]
+        }
+      },
+      {
+        "id": "cto",
+        "name": "CTO助手",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/cto",
+        "skills": [
+          "*",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search"
+        ],
+        "identity": {
+          "emoji": "👔"
+        },
+        "subagents": {
+          "allowAgents": ["dev", "tester", "ops"]
+        }
+      },
+      {
+        "id": "dev",
+        "name": "开发工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/dev",
+        "skills": [
+          "browser-use",
+          "build",
+          "claude-code-task",
+          "git",
+          "gitee-coder",
+          "github",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "skill-creator",
+          "tavily-search"
+        ],
+        "identity": {
+          "emoji": "💻"
+        },
+        "subagents": {
+          "allowAgents": ["tester"]
+        }
+      },
+      {
+        "id": "tester",
+        "name": "测试工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/tester",
+        "skills": [
+          "analyze",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "test",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🧪"
+        }
+      },
+      {
+        "id": "ops",
+        "name": "运维工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/ops",
+        "skills": [
+          "analyze",
+          "build",
+          "claude-code-task",
+          "git",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🔧"
+        }
+      },
+      {
+        "id": "pc-pm",
+        "name": "元小宝-管理平台产品经理",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-pm",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "📋"
+        },
+        "subagents": {
+          "allowAgents": ["pc-backend", "pc-frontend", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-ai-pythondev",
+        "name": "元小派-Python开发专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-ai-pythondev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "zentao",
+          "mysql-readonly",
+          "superBrower"
+        ],
+        "subagents": {
+          "allowAgents": ["pc-backend", "pc-frontend", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-yz-app-pm",
+        "name": "元策——产品经理",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-yz-app-pm",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "zentao",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["pc-yz-app-javadev", "pc-yz-app-appdev", "pc-yz-app-aidev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-yz-app-javadev",
+        "name": "元枢——Java开发工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-yz-app-javadev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "zentao",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["pc-yz-app-appdev", "pc-yz-app-aidev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-yz-app-appdev",
+        "name": "元触——APP开发工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-yz-app-appdev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "zentao",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["pc-yz-app-javadev", "pc-yz-app-aidev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-yz-app-aidev",
+        "name": "元悟——AI工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-yz-app-aidev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "zentao",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["pc-yz-app-javadev", "pc-yz-app-appdev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "yz-app-pm",
+        "name": "元策-产品经理",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/yz-app-pm",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": [
+            "yz-app-javadev",
+            "yz-app-appdev",
+            "yz-app-aidev",
+            "pc-pctester",
+            "pc-ai-pythondev"
+          ]
+        }
+      },
+      {
+        "id": "yz-app-javadev",
+        "name": "元枢-Java开发",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/yz-app-javadev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["yz-app-appdev", "yz-app-aidev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "yz-app-appdev",
+        "name": "元触-APP开发",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/yz-app-appdev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["yz-app-javadev", "yz-app-aidev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "yz-app-aidev",
+        "name": "元悟-AI工程师",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/yz-app-aidev",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "mysql-readonly"
+        ],
+        "subagents": {
+          "allowAgents": ["yz-app-javadev", "yz-app-appdev", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-backend",
+        "name": "元小开-管理平台后端开发",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-backend",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "build",
+          "connectproductserver",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot",
+          "yz-dev-java"
+        ],
+        "identity": {
+          "emoji": "⚙️"
+        },
+        "subagents": {
+          "allowAgents": ["pc-pctester", "pc-code_reviewer"]
+        }
+      },
+      {
+        "id": "pc-frontend",
+        "name": "元小钱-前端开发专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-frontend",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "build",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🎨"
+        },
+        "subagents": {
+          "allowAgents": ["pc-pctester", "pc-code_reviewer"]
+        }
+      },
+      {
+        "id": "pc-pctester",
+        "name": "元小测-管理平台测试专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-pctester",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "connectproductserver",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "test",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🧪"
+        },
+        "subagents": {
+          "allowAgents": ["pc-backend", "pc-frontend"]
+        }
+      },
+      {
+        "id": "pc-ceo_assistant",
+        "name": "元小芯-管理平台CEO助手",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-ceo_assistant",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "👔"
+        },
+        "subagents": {
+          "allowAgents": [
+            "pc-pm",
+            "pc-backend",
+            "pc-frontend",
+            "pc-pctester",
+            "pc-code_reviewer",
+            "pc-devops",
+            "pc-ip_expert"
+          ]
+        }
+      },
+      {
+        "id": "pc-code_reviewer",
+        "name": "元小审-代码审查专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-code_reviewer",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "connectproductserver",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🔍"
+        },
+        "subagents": {
+          "allowAgents": ["pc-backend", "pc-frontend"]
+        }
+      },
+      {
+        "id": "pc-devops",
+        "name": "元维维-部署专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-devops",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "build",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🚀"
+        },
+        "subagents": {
+          "allowAgents": ["pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-ip_expert",
+        "name": "元小知-知识产权专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/pc-ip_expert",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "feishu-doc",
+          "gitee-coder",
+          "memory",
+          "memory-lite",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "📚"
+        },
+        "subagents": {
+          "allowAgents": []
+        }
+      }
+    ]
+  }
+}

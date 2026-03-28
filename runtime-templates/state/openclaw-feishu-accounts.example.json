@@ -1,0 +1,13 @@
+{
+  "accounts": {
+    "backend": {
+      "appId": "cli_example_backend",
+      "appSecret": "secret_example_backend"
+    },
+    "pctester": {
+      "appId": "cli_example_pctester",
+      "appSecret": "secret_example_pctester"
+    }
+  },
+  "defaultAccount": "backend"
+}

@@ -1,0 +1,42 @@
+{
+  "plugins": {
+    "load": {
+      "paths": ["${OPENCLAW_OVERLAY_ROOT}/extensions/wecom"]
+    },
+    "entries": {
+      "mysql-readonly": {
+        "enabled": false,
+        "config": {
+          "host": "${MYSQL_READONLY_HOST:-127.0.0.1}",
+          "port": 3306,
+          "user": "${MYSQL_READONLY_USER:-openclaw_ro}",
+          "password": "${MYSQL_READONLY_PASSWORD:-CHANGE_ME}",
+          "database": "${MYSQL_READONLY_DATABASE:-CHANGE_ME}",
+          "allowedTables": [],
+          "connectTimeoutMs": 10000,
+          "queryTimeoutMs": 15000,
+          "maxRows": 200,
+          "ssl": false
+        }
+      },
+      "zentao": {
+        "enabled": false,
+        "config": {
+          "baseUrl": "${ZENTAO_BASE_URL:-https://chandao.example.com}",
+          "apiVersion": "v1",
+          "verifyTls": true,
+          "requestTimeoutMs": 15000,
+          "mode": "read-only",
+          "allowedProducts": [],
+          "allowedProjects": [],
+          "allowedExecutions": [],
+          "writeGuards": {
+            "requireReason": true,
+            "requireScopeMatch": true,
+            "confirmBeforeDestructive": true
+          }
+        }
+      }
+    }
+  }
+}

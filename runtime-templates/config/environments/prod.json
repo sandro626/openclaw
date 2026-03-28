@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "environment": "prod",
+    "deployedBy": "${OPENCLAW_DEPLOY_OPERATOR:-unknown}"
+  }
+}

@@ -81,6 +81,11 @@
 
 这两套目录不应长期继续作为扩展源码真源。
 
+当前仓库进度：
+
+- `server-config/extensions/wecom` 已退出当前活跃树，并先归档到本地 `.artifacts/ops/archive/server-config-extensions/wecom-<timestamp>/`
+- `server-config/extensions/feishu` 已退出当前活跃树，并先归档到本地 `.artifacts/ops/archive/server-config-extensions/feishu-<timestamp>/`
+
 ### 生产快照与本地正式扩展的显著差异
 
 第一轮盘点表明：
@@ -93,6 +98,17 @@
 
 - 把上游扩展演进误认成业务私有资产
 - 把 `server-config/extensions` 中的副本继续当成正式源码
+
+当前判断补充：
+
+- `wecom` 已具备退休 `server-config` 副本的条件
+- `feishu` 的旧 onboarding 逻辑已被当前 `extensions/feishu/src/setup-surface.ts` 接管，仓库层副本可以退休
+- `extensions/feishu`、`extensions/mysql-readonly`、`extensions/superBrower`、`extensions/zentao` 当前仍是源码真源
+- `overlay/extensions/wecom` 当前保留为显式加载的私有分叉
+- `overlay/extensions/feishu` 目前仍是预留接收位，不是活跃构建入口
+- `overlay/extensions/mysql-readonly`、`overlay/extensions/superBrower`、`overlay/extensions/zentao` 的过时镜像副本已退休，避免继续形成第二份源码树
+- 装配脚本已切换为“显式 `plugins.load.paths`”模式；overlay 下存在可加载目录不再等于默认启用
+- 当前默认模板只显式加载 `overlay/extensions/wecom`；`overlay/extensions/feishu` 仍保持预留状态
 
 ## 扩展分类规则
 
@@ -200,6 +216,8 @@
 5. 验证运行
 6. 最后才清理旧副本
 
+`wecom` 和 `feishu` 已完成这条链路的仓库层收口；后续重点转向 `server-config/skills` 和运行态模板。
+
 ### 先统一真源，再统一部署
 
 如果某个扩展同时存在于：
@@ -208,6 +226,20 @@
 - `server-config/extensions/<name>`
 
 必须先明确哪一份是后续真源，再处理部署。
+
+如果某个扩展同时存在于：
+
+- `extensions/<name>`
+- `overlay/extensions/<name>`
+
+也必须先明确：
+
+- 当前构建和安装入口是哪一份
+- overlay 是占位接收位、私有分叉，还是已经完成切换的正式真源
+
+在未完成切换前，不要把同名 `overlay/extensions/<name>` 当成第二份活跃源码。
+
+如果 overlay 下的同名目录既没有独立业务分叉，也没有进入当前 runtime 加载链路，应优先直接退休，而不是长期保留镜像源码。
 
 ### 扩展源码与扩展配置分离
 
@@ -242,6 +274,13 @@
 - `server-config/extensions` 不再承担正式源码真源职责
 - 私有业务扩展有明确 overlay 落点
 - 扩展源码、扩展模板、运行态配置三者边界清楚
+
+当前补充：
+
+- `server-config/extensions/wecom` 已不再承担活跃真源职责
+- `server-config/extensions/feishu` 已不再承担活跃真源职责
+- 当前活跃 overlay 扩展只剩 `wecom`；`feishu` 保留为预留接收位
+- `mysql-readonly`、`superBrower`、`zentao` 已收口回 `extensions/*` 单真源
 
 ## 后续文档
 

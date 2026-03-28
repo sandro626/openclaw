@@ -1,0 +1,12 @@
+{
+  "skills": {
+    "entries": {
+      "chandao": {
+        "enabled": true
+      },
+      "manage-platform-test": {
+        "enabled": true
+      }
+    }
+  }
+}

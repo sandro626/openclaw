@@ -19,6 +19,8 @@
 - [Workspace Migration](/operations/workspace-migration)
 - [Runtime Diff Classification](/operations/runtime-diff-classification)
 - [Deploy Protection](/operations/deploy-protection)
+- [Overlay Agents Migration](/operations/overlay-agents-migration)
+- [Production Runtime Migration Runbook](/operations/production-runtime-migration-runbook)
 
 ## 当前现状
 
@@ -36,6 +38,12 @@
 - sessions
 
 这意味着 agent 目录当前更接近运行态目录，而不是纯静态定义目录。
+
+补充说明：
+
+- 仓库中的 `overlay/agents` 已收口为静态骨架层
+- 仓库中的 `server-config/agents` 已退出当前活跃树，只保留归档说明，不再承担真源职责
+- 服务器 runtime 的当前 agent / workspace / legacy sessions 盘点，建议统一由 `pnpm ops:audit-runtime-layout` 生成，而不是继续手工维护多份清单
 
 ### 2. workspace 承担了过多职责
 
@@ -120,6 +128,65 @@
 
 盘点表明，至少个别 agent 目录下仍存在 `workspace/` 风格子目录。这说明过去曾存在多套 agent 工作区布局，没有完全收敛。
 
+## 最新核查快照
+
+### 本地仓库状态
+
+按当前仓库核查结果：
+
+- `pnpm check:repo-layering` 已通过
+- `skills/*` 与 `overlay/skills/*` 已不存在同名双真源
+- `extensions/*` 与 `overlay/extensions/*` 只剩 `feishu`、`wecom` 这两个文档允许的重叠
+- `server-config/*` 已退场为 README-only
+- `overlay/agents/*/workspace/` 当前只保留白名单静态骨架文件
+- `runtime-templates/agents/environments/prod.json` 当前已收口为 `22` 个生产唯一 agent，并显式保留 `pc-ai-pythondev`、`pc-yz-app-*`、`yz-app-*`
+
+说明本地仓库的三层边界已经基本收口，后续重点转向服务器 runtime 对位与迁移。
+
+### 服务器 runtime 与仓库模板的最新对位
+
+最新一次按服务器真实 `openclaw.json` 的核查结果：
+
+- 服务器原始 `agents.list` 当前有 `26` 条配置项
+- 去重后为 `22` 个唯一 agent
+- 重复 id 目前仅有 `yz-app-pm`、`yz-app-javadev`、`yz-app-appdev`、`yz-app-aidev`
+- 这 `4` 个 `yz-app-*` 是需要保留的真实用户，不应被当成历史 agent 清理
+- 仓库中的 `runtime-templates/agents/environments/prod.json` 现在以 `22` 个唯一 agent 作为 canonical 真源，不再把重复条目原样带回仓库
+
+当前生产唯一 agent 包括：
+
+- `main`、`cto`、`dev`、`tester`、`ops`
+- `pc-pm`、`pc-backend`、`pc-frontend`、`pc-pctester`
+- `pc-ceo_assistant`、`pc-code_reviewer`、`pc-devops`、`pc-ip_expert`
+- `pc-ai-pythondev`
+- `pc-yz-app-pm`、`pc-yz-app-javadev`、`pc-yz-app-appdev`、`pc-yz-app-aidev`
+- `yz-app-pm`、`yz-app-javadev`、`yz-app-appdev`、`yz-app-aidev`
+
+这说明：
+
+- 当前生产运行态和仓库模板已经能按 `22` 个唯一 agent 对位
+- 服务器配置层的剩余问题，主要是 `yz-app-*` 的重复配置项需要后续去重，而不是这些 agent 需要退休
+- 服务器活跃 runtime 下的历史 agent sessions 已在迁移窗口中归档，不再作为当前生产清单的一部分
+
+### 服务器上仍存在的 host-local skill 源目录
+
+服务器 `root` 用户下仍可见一批 `.claude/skills/*` 目录，例如：
+
+- `attendance-video-fix`
+- `message-exception-audit`
+- `video-fix`
+- `yz-build`
+- `yz-code-review`
+- `yz-dev`
+- `yz-dev-java`
+- `yz-service`
+- `yz-test-java`
+
+当前进度：
+
+- `yz-build`、`yz-dev-java`、`yz-test-java` 已回迁到 `overlay/skills/*`
+- 其余 `attendance-video-fix`、`message-exception-audit`、`video-fix`、`yz-code-review`、`yz-dev`、`yz-service` 仍是服务器侧私有 skill，后续需要逐项判断是回迁、归档还是退休
+
 ## agent 资产分类规则
 
 ### A 类：agent 静态定义资产
@@ -158,6 +225,14 @@
 目标位置：
 
 - `runtime-templates/agents/*`
+
+当前仓库口径：
+
+- `runtime-templates/agents/base.json` 承载共享 `agents.defaults`
+- `runtime-templates/agents/environments/<env>.json` 承载环境下的 agent 激活列表
+- `runtime-templates/agents/bindings/base.json` 与 `bindings/environments/<env>.json` 承载 channel -> agent 路由绑定
+- `runtime-templates/agents/skill-resolution.json` 显式记录 server alias、外部内置 skill、server-local runtime-only skill，以及当前仅在服务器配置中可见但尚未找回源码的 skill id
+- `runtime-templates/agents/<agentId>/config.patch.json` 承载每个 agent 的非敏感默认补丁
 
 ### C 类：运行态真实数据
 

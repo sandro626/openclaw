@@ -59,15 +59,18 @@
 
 ### 本地主仓中的团队相关技能
 
-当前主技能目录中，以下更接近团队私有或业务相关能力：
+历史上，主技能目录里曾混入过一批更接近团队私有或业务相关能力的技能：
 
-- `skills/browser-use`
-- `skills/dev-openclaw`
-- `skills/mysql-readonly`
-- `skills/superBrower`
-- `skills/zentao`
+- `browser-use`
+- `dev-openclaw`
+- `mysql-readonly`
+- `superBrower`
+- `zentao`
 
-它们不一定都应该保留在主仓技能目录中，后续需要明确是否迁入 overlay。
+当前补充判断：
+
+- `browser-use`、`dev-openclaw`、`mysql-readonly` 已回归 `overlay/skills/*` 作为活跃真源
+- `superBrower` 与 `zentao` 不在当前 `skills/*` 活跃树中，应继续按业务技能方向治理
 
 ### `server-config/skills` 中的重点业务技能
 
@@ -93,13 +96,32 @@
 
 这些技能大多不适合作为主仓通用技能，应优先视为 overlay 资产候选。
 
+当前仓库进度：
+
+- 已有一批与 `overlay/skills/*` 等价的目录退出 `server-config/skills` 当前活跃树
+- 已退出的第一批包括 `aliyun-oss-upload`、`browser-use`、`chandao`、`feishu-doc-manager`、`memory`、`memory-lite`、`ppt-creator`、`proactive-agent`、`self-improving-agent`、`tavily-search`、`tecent-finance`、`weather-cn`
+- 第二批已把 `feishu-contacts`、`feishu-doc-guide`、`lark-integration`、`dingtalk-feishu-cn`、`automation-workflows`、`manage-platform-test` 提升到 `overlay/skills/*` 顶层
+- 第三批已把 `agent-council`、`agent-orchestrator` 提升到 `overlay/skills/*` 顶层
+- 第四批已把 `github`、`imap-smtp-email`、`linear-skill`、`monday`、`obsidian`、`qrcoin`、`moltbook-daily-digest`、`bankr`、`base`、`botchan`、`botpress-adk`、`clanker`、`endaoment`、`ens-primary-name`、`erc-8004`、`neynar`、`onchainkit`、`veil`、`yoink`、`zapper` 提升到 `overlay/skills/*` 顶层
+- 已把服务器本地 skill 真源 `connectproductserver` 回迁到 `overlay/skills/connectproductserver/`，并把跳板机、目标主机、SSH 路径与服务名迁到 `runtime-templates/skills/*`
+- 已根据服务器历史 session 中仍可恢复的 skill 元数据，把 `gitee-coder` 回迁到 `overlay/skills/gitee-coder/`，并把仓库宿主、默认 owner、工作目录、默认分支与 SSH 路径迁到 `runtime-templates/skills/*`
+- 已从服务器现行 `.claude/skills/yz-dev-java/SKILL.md` 找回 `yz-dev-java` 真源，并回迁到 `overlay/skills/yz-dev-java/`
+- `yz-dev-java` 中的项目路径、Nacos 服务器、命名空间和配置部署目标已迁到 `runtime-templates/skills/*`；服务器中原有的真实地址和口令不再写回仓库
+- 已同步把同一组 companion skill `yz-build`、`yz-test-java` 从服务器现行真源回迁到 `overlay/skills/*`
+- `yz-build` 与 `yz-test-java` 的运行态只保留项目根目录模板，不把服务器本地工作目录写回仓库
+- 已把历史上误落在 `skills/*` 的 `browser-use`、`dev-openclaw`、`mysql-readonly` 副本退出当前活跃树，避免与 overlay 重复
+- 这些历史副本已先归档到 `.artifacts/ops/archive/server-config-skills/<name>-<timestamp>/`
+- 当前 `server-config/skills/*` 活跃树已只保留 README 说明文件，不再承载技能源码
+- `feishu-contacts` 的 App ID、App Secret、账户文件路径、缓存目录、共享目录、日志路径与共享文档 URL 已迁到 `runtime-templates/skills/*`，`overlay/skills/feishu-contacts/*` 只保留脚本和泛化说明
+- 如果其中某个技能在 `skills/*` 已有活跃通用版本，则应继续以 `skills/*` 为真源；从 `server-config` 提升出的 overlay 副本只应作为过渡输入，后续应退出以避免双真源
+
 ### `server-config/skills` 中存在第三方整包与外部镜像
 
-盘点已确认：
+盘点结论已调整为：
 
-- 某些技能目录自带 `.git`
-- 某些技能本身像完整外部项目而不是轻量 skill
-- 某些技能包含大量脚本、模板、文档和独立生命周期
+- 需要特别治理的不是“第三方来源”本身，而是“是否具备独立生命周期”
+- 本轮核查后，`server-config/skills` 中剩余目录大多仍是标准 `SKILL.md` 技能目录，适合直接提升到 `overlay/skills/*` 顶层
+- 只有真正像独立项目、外部镜像或非默认加载资产的目录，才应进入 `overlay/skills/external-bundles/` 或归档
 
 这类内容不应长期继续散落在 `server-config/skills` 中，应单独归类为：
 
@@ -226,6 +248,36 @@
 - 哪些技能迁移到 `overlay/skills/*`
 - 哪些技能只保留模板
 - 哪些技能应归档
+
+当前补充：
+
+- 已经完成 overlay 等价技能的第一批退场
+- 已完成飞书组与工作流组的第二批提升迁位
+- 已完成 agent 协作组的第三批提升迁位
+- 已完成剩余顶层可加载技能的第四批提升迁位
+- 已把 `manage-platform-test`、`chandao` 等技能中的站点账号与密码入口迁到 `runtime-templates/skills/*`
+- 当前 `server-config/skills` 已只保留历史入口说明，不再存在活跃技能源码
+
+### 不制造 `skills/*` 与 `overlay/skills/*` 双真源
+
+如果某个技能同时存在于：
+
+- `skills/<name>`
+- `overlay/skills/<name>`
+
+必须先判定哪一份是活跃真源，再决定是否保留另一份。
+
+判定原则：
+
+1. 已在 `skills/*` 中长期维护、面向通用用户的技能，继续以 `skills/*` 为真源
+2. 与企业环境、私有流程、专属平台强绑定的技能，迁到 `overlay/skills/*`
+3. 从 `server-config/skills/*` 提升出来、但与 `skills/*` 重名的历史副本，不应长期留在 overlay
+
+当前应优先视为 `skills/*` 真源的重叠项包括：
+
+- `github`
+- `obsidian`
+- `skill-creator`
 
 ### 技能源码与工作区输出分离
 
