@@ -1,0 +1,4 @@
+interface:
+  display_name: "PP Claw Dev"
+  short_description: "OpenClaw fork layering, deploy, and live-ops guide"
+  default_prompt: "Use $pp-claw-dev to work on this OpenClaw fork while preserving the upstream, overlay, and runtime split and following the live server workflow."
