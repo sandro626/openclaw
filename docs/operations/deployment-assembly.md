@@ -57,6 +57,10 @@ agent 模板规则：
 - `runtime-templates/agents/base.json` 与 `environments/<env>.json` 承载 `agents.defaults` 和运行环境下的 agent 激活列表
 - `runtime-templates/agents/bindings/base.json` 与 `bindings/environments/<env>.json` 承载 channel -> agent 路由绑定
 - `runtime-templates/agents/skill-resolution.json` 显式记录 server alias、host 提供的外部 skill、server-local runtime-only skill，以及仅在配置中可见但尚未找回源码的 skill id
+- canonical memory 通过 `plugins.slots.memory = "memory-core"` 和 `agents.*.memorySearch` 提供；生产 agent 模板不再把 `memory`、`memory-lite`、`hippocampus-memory` 当作 skill 挂载
+- 当前生产 canonical memory embedding 模板固定为 Alibaba Cloud Model Studio OpenAI-compatible endpoint：
+  `provider = "openai"`、`model = "text-embedding-v4"`、`remote.baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1"`、`remote.apiKey -> env:MODELSTUDIO_API_KEY`
+- 注意：在 live gateway 上启用这组 `memorySearch` 模板前，必须先把 `MODELSTUDIO_API_KEY` 注入 systemd/service 环境；否则 gateway 启动时会因 `SecretRefResolutionError` 直接失败
 - 每个 `overlay/agents/<agentId>/` 必须显式对应一个 `runtime-templates/agents/<agentId>/config.patch.json`
 - 没有默认配置的 agent 也保留空对象补丁 `{}`，避免靠缺文件表达“未配置”
 

@@ -23,6 +23,9 @@
 - `config.patch.json` 只保留非敏感默认项
 - 每个 `overlay/agents/<agentId>/` 都要有显式对应的 `runtime-templates/agents/<agentId>/config.patch.json`
 - 如果某个 agent 没有仓库级默认配置，也应显式写成空对象 `{}`，不要靠缺文件表达“无默认项”
+- canonical memory 由 `plugins.slots.memory = "memory-core"` 和 `agents.*.memorySearch` 提供；生产 agent `skills` 中不得再挂 `memory`、`memory-lite` 或 `hippocampus-memory`
+- 当前生产 canonical memory embedding 走 Alibaba Cloud Model Studio 的 OpenAI-compatible embeddings：
+  `provider = "openai"`、`model = "text-embedding-v4"`、`remote.baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1"`、`remote.apiKey -> env:MODELSTUDIO_API_KEY`
 - 生产环境如果从服务器回拉最新真源，可以保留 server-local skill id，但必须先登记到 `skill-resolution.json`
 - 如果服务器 `openclaw.json` 临时出现重复 agent 条目，仓库模板仍应只保留唯一的 canonical agent 定义，不把重复行原样带回仓库
 - 如果服务器配置里引用了某个 skill id，但当前没有找回对应源码，应登记到 `configOnly`，而不是误记成 `runtimeOnly`

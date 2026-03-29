@@ -96,6 +96,8 @@
 
 这些技能大多不适合作为主仓通用技能，应优先视为 overlay 资产候选。
 
+其中 `memory` / `memory-lite` 当前只保留为历史运维 skill；生产 agent 已改用 canonical `memory-core` plugin + `agents.*.memorySearch`，不再把它们挂进 agent `skills`。
+
 当前仓库进度：
 
 - 已有一批与 `overlay/skills/*` 等价的目录退出 `server-config/skills` 当前活跃树

@@ -168,7 +168,7 @@ function createFetchRemoteMediaParams(
 }
 
 describe("fetchRemoteMedia", () => {
-  const telegramToken = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcd";
+  const telegramToken = "123456789:telegram_redaction_test_token_example_1234";
   const redactedTelegramToken = `${telegramToken.slice(0, 6)}…${telegramToken.slice(-4)}`;
   const telegramFileUrl = `https://api.telegram.org/file/bot${telegramToken}/photos/1.jpg`;
 

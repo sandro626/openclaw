@@ -18,6 +18,16 @@ Placeholder syntax:
 - `${NAME}`: required environment variable
 - `${NAME:-fallback}`: optional environment variable with fallback
 
+Current production memory embedding envs:
+
+- `MODELSTUDIO_API_KEY`: Alibaba Cloud Model Studio API key for canonical `agents.defaults.memorySearch.remote.apiKey`
+- `OPENCLAW_MEMORY_EMBED_BASE_URL`: optional override for the embedding endpoint
+- `OPENCLAW_MEMORY_EMBED_MODEL`: optional override for the embedding model (`text-embedding-v4` by default)
+
+Live deploy note:
+
+- Do not deploy a rendered `agents.defaults.memorySearch.remote.apiKey` SecretRef to a live gateway unless `MODELSTUDIO_API_KEY` is already present in the service environment. The gateway startup path fails closed when that env var is missing.
+
 Do not commit:
 
 - real API keys

@@ -10,6 +10,9 @@
   },
   "plugins": {
     "enabled": true,
+    "slots": {
+      "memory": "memory-core"
+    },
     "load": {
       "paths": []
     }

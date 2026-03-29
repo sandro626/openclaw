@@ -5,6 +5,19 @@
       "model": {
         "primary": "minimax/MiniMax-M2.7"
       },
+      "memorySearch": {
+        "enabled": true,
+        "provider": "openai",
+        "model": "${OPENCLAW_MEMORY_EMBED_MODEL:-text-embedding-v4}",
+        "remote": {
+          "baseUrl": "${OPENCLAW_MEMORY_EMBED_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}",
+          "apiKey": {
+            "source": "env",
+            "provider": "default",
+            "id": "MODELSTUDIO_API_KEY"
+          }
+        }
+      },
       "imageModel": {
         "primary": "zai/glm-4.6v",
         "fallbacks": []

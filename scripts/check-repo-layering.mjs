@@ -18,6 +18,20 @@ const FORBIDDEN_OVERLAY_AGENT_TOP_LEVEL_PATHS = ["agent", "sessions", "memory"];
 const FORBIDDEN_OVERLAY_AGENT_WORKSPACE_PATHS = ["SESSION-STATE.md", "memory"];
 const RESERVED_AGENT_TEMPLATE_DIRS = new Set(["bindings", "environments", "workspace-skeleton"]);
 const AGENT_SKILL_RESOLUTION_FILE = "skill-resolution.json";
+const FORBIDDEN_AGENT_SKILL_IDS = new Map([
+  [
+    "memory",
+    'runtime agent templates must use canonical memory-core via plugins.slots.memory + agents.defaults.memorySearch, not the legacy overlay skill "memory"',
+  ],
+  [
+    "memory-lite",
+    'runtime agent templates must not use the legacy overlay skill "memory-lite"; use canonical memory-core instead',
+  ],
+  [
+    "hippocampus-memory",
+    'runtime agent templates must not use the retired legacy alias "hippocampus-memory"; use canonical memory-core instead',
+  ],
+]);
 
 async function exists(filePath) {
   try {
@@ -375,6 +389,12 @@ async function main() {
 
   function validateAgentSkillIds(filePath, parsed) {
     for (const skillId of collectAgentSkillIds(parsed)) {
+      if (FORBIDDEN_AGENT_SKILL_IDS.has(skillId)) {
+        errors.push(
+          `runtime agent template "${relativeToRoot(filePath)}" uses forbidden legacy memory skill "${skillId}": ${FORBIDDEN_AGENT_SKILL_IDS.get(skillId)}`,
+        );
+        continue;
+      }
       if (skillAliases.has(skillId)) {
         const canonicalSkillId = skillAliases.get(skillId);
         errors.push(

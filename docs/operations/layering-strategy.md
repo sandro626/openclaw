@@ -154,17 +154,17 @@ ceb5bf8409 feat: 升级到上游 openclaw 2026.2.25 并保留本地扩展
 
 从服务器 101.35.218.139 同步到 overlay/skills/：
 
-| 技能组           | 技能列表                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------- |
-| **飞书套件**     | feishu-contacts, feishu-doc-guide, feishu-doc-manager, lark-integration, dingtalk-feishu-cn |
-| **记忆系统**     | memory, memory-lite（历史别名：hippocampus-memory）                                         |
-| **主动代理**     | proactive-agent, self-improving-agent, agent-council, agent-orchestrator                    |
-| **自动化工作流** | automation-workflows                                                                        |
-| **阿里云**       | aliyun-oss-upload                                                                           |
-| **搜索**         | tavily-search                                                                               |
-| **禅道**         | chandao                                                                                     |
-| **测试/办公**    | ppt-creator, manage-platform-test, weather-cn, tecent-finance                               |
-| **第三方整包**   | bankr, base, botchan, clanker, endaoment, neynar, onchainkit 等                             |
+| 技能组                         | 技能列表                                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **飞书套件**                   | feishu-contacts, feishu-doc-guide, feishu-doc-manager, lark-integration, dingtalk-feishu-cn     |
+| **记忆系统（历史运维 skill）** | memory, memory-lite（历史别名：hippocampus-memory；现网 canonical 已改为 `memory-core` plugin） |
+| **主动代理**                   | proactive-agent, self-improving-agent, agent-council, agent-orchestrator                        |
+| **自动化工作流**               | automation-workflows                                                                            |
+| **阿里云**                     | aliyun-oss-upload                                                                               |
+| **搜索**                       | tavily-search                                                                                   |
+| **禅道**                       | chandao                                                                                         |
+| **测试/办公**                  | ppt-creator, manage-platform-test, weather-cn, tecent-finance                                   |
+| **第三方整包**                 | bankr, base, botchan, clanker, endaoment, neynar, onchainkit 等                                 |
 
 ### 3.4 Agent 定义
 
