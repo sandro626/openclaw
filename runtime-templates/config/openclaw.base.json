@@ -23,7 +23,7 @@
       "minimax": {
         "baseUrl": "${OPENCLAW_MINIMAX_BASE_URL:-https://api.minimaxi.com/anthropic}",
         "api": "${OPENCLAW_MINIMAX_API:-anthropic-messages}",
-        "authHeader": true,
+        "authHeader": false,
         "models": []
       }
     }

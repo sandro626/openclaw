@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
+import { isPluginRootCommand } from "./cli-command-marker.js";
 
 const mocks = vi.hoisted(() => ({
   memoryRegister: vi.fn(),
@@ -144,5 +145,19 @@ describe("registerPluginCliCommands", () => {
 
     expectAutoEnabledCliLoad({ rawConfig, autoEnabledConfig });
     expectCliRegistrarCalledWithConfig(autoEnabledConfig);
+  });
+
+  it("marks registered plugin root commands for preaction invalid-config handling", () => {
+    mocks.memoryRegister.mockImplementation(({ program }: { program: Command }) => {
+      program.command("memory").action(() => {});
+    });
+
+    const program = runRegisterPluginCliCommands({
+      config: {} as OpenClawConfig,
+    });
+
+    const memoryCommand = program.commands.find((command) => command.name() === "memory");
+    expect(memoryCommand).toBeDefined();
+    expect(isPluginRootCommand(memoryCommand as Command)).toBe(true);
   });
 });

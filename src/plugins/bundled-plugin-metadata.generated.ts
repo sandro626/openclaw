@@ -8111,6 +8111,148 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
   },
   {
+    dirName: "linux-voice",
+    idHint: "linux-voice",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["api.js"],
+    packageName: "@openclaw/linux-voice",
+    packageVersion: "2026.3.27",
+    packageDescription: "OpenClaw Linux terminal voice plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "linux-voice",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          agentId: {
+            type: "string",
+          },
+          sessionKey: {
+            type: "string",
+          },
+          capture: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              inputFormat: {
+                type: "string",
+                enum: ["auto", "alsa", "pulse"],
+              },
+              inputDevice: {
+                type: "string",
+              },
+              sampleRate: {
+                type: "integer",
+                minimum: 8000,
+                maximum: 48000,
+              },
+              channels: {
+                type: "integer",
+                minimum: 1,
+                maximum: 2,
+              },
+              vadThreshold: {
+                type: "number",
+                minimum: 0.001,
+                maximum: 1,
+              },
+              vadStartMs: {
+                type: "integer",
+                minimum: 20,
+                maximum: 5000,
+              },
+              vadStopMs: {
+                type: "integer",
+                minimum: 100,
+                maximum: 10000,
+              },
+              preRollMs: {
+                type: "integer",
+                minimum: 0,
+                maximum: 5000,
+              },
+              minUtteranceMs: {
+                type: "integer",
+                minimum: 100,
+                maximum: 10000,
+              },
+              maxUtteranceMs: {
+                type: "integer",
+                minimum: 1000,
+                maximum: 60000,
+              },
+            },
+          },
+          conversation: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              followupWindowSec: {
+                type: "integer",
+                minimum: 0,
+                maximum: 3600,
+              },
+              thinkLevel: {
+                type: "string",
+                enum: ["off", "minimal", "low", "medium", "high", "xhigh", "adaptive"],
+              },
+              responseTimeoutMs: {
+                type: "integer",
+                minimum: 1000,
+                maximum: 600000,
+              },
+              ackText: {
+                type: "string",
+              },
+            },
+          },
+          playback: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              player: {
+                type: "string",
+                enum: ["auto", "ffplay"],
+              },
+              volume: {
+                type: "integer",
+                minimum: 0,
+                maximum: 100,
+              },
+            },
+          },
+          wake: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              stopPhrases: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      },
+      enabledByDefault: true,
+      name: "Linux Voice",
+      description: "Linux terminal voice wake and spoken OpenClaw interaction.",
+    },
+  },
+  {
     dirName: "litellm",
     idHint: "litellm",
     source: {

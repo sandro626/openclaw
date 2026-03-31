@@ -7,6 +7,7 @@ import process from "node:process";
 
 const STATIC_WORKSPACE_FILES = new Set([
   "AGENTS.md",
+  "CLAUDE.md",
   "IDENTITY.md",
   "BOOTSTRAP.md",
   "USER.md",

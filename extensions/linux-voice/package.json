@@ -1,0 +1,12 @@
+{
+  "name": "@openclaw/linux-voice",
+  "version": "2026.3.27",
+  "private": true,
+  "description": "OpenClaw Linux terminal voice plugin",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

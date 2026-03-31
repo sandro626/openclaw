@@ -218,6 +218,7 @@
 overlay/agents/<id>/
 └── workspace/
     ├── AGENTS.md
+    ├── CLAUDE.md -> AGENTS.md
     ├── IDENTITY.md
     ├── BOOTSTRAP.md
     ├── USER.md
@@ -235,7 +236,7 @@ runtime-templates/agents/<id>/
 当前仓库已额外把这条规则固化到校验链路：
 
 - `scripts/check-repo-layering.mjs` 会拦截白名单之外的 `overlay/agents/<id>/workspace/*`
-- `scripts/seed-agent-workspaces.mjs` 只会补种 `AGENTS.md`、`IDENTITY.md`、`BOOTSTRAP.md`、`TOOLS.md`、`USER.md`
+- `scripts/seed-agent-workspaces.mjs` 只会补种 `AGENTS.md`、`CLAUDE.md`、`IDENTITY.md`、`BOOTSTRAP.md`、`TOOLS.md`、`USER.md`
 - `scripts/seed-agent-workspaces.mjs` 在默认 `missing` 模式下会让 overlay 同名文件覆盖本轮刚补出的 skeleton 文件，但不会覆盖 runtime 里原本已存在的静态文件
 
 ## 本轮建议的先后顺序

@@ -8,6 +8,7 @@
         "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/main",
         "skills": [
           "*",
+          "claude-code-task",
           "proactive-agent",
           "self-improvement",
           "feishu-doc-manager",
@@ -24,6 +25,7 @@
         "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/cto",
         "skills": [
           "*",
+          "claude-code-task",
           "proactive-agent",
           "self-improvement",
           "feishu-doc-manager",
@@ -82,7 +84,7 @@
       },
       {
         "id": "ops",
-        "name": "运维工程师",
+        "name": "元小运-运营专家",
         "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace}/ops",
         "skills": [
           "analyze",
@@ -108,8 +110,10 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
+          "imap-smtp-email",
           "proactive-agent",
           "self-improvement",
           "feishu-doc-manager",
@@ -131,6 +135,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -154,6 +159,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -176,6 +182,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -198,6 +205,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -220,6 +228,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -242,6 +251,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "proactive-agent",
           "self-improvement",
@@ -268,6 +278,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "proactive-agent",
           "self-improvement",
@@ -288,6 +299,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "proactive-agent",
           "self-improvement",
@@ -308,6 +320,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "proactive-agent",
           "self-improvement",
@@ -329,6 +342,7 @@
           "analyze",
           "browser-use",
           "build",
+          "claude-code-task",
           "connectproductserver",
           "feishu-doc",
           "gitee-coder",
@@ -355,6 +369,7 @@
           "analyze",
           "browser-use",
           "build",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -378,6 +393,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "connectproductserver",
           "feishu-doc",
           "gitee-coder",
@@ -403,6 +419,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -434,6 +451,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "connectproductserver",
           "feishu-doc",
           "gitee-coder",
@@ -459,6 +477,7 @@
           "analyze",
           "browser-use",
           "build",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",
@@ -482,6 +501,7 @@
         "skills": [
           "analyze",
           "browser-use",
+          "claude-code-task",
           "feishu-doc",
           "gitee-coder",
           "proactive-agent",

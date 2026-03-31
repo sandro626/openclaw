@@ -63,7 +63,8 @@ export function buildMinimaxProvider(
   return {
     baseUrl: overrides.baseUrl?.trim() || MINIMAX_API_BASE_URL,
     api: overrides.api ?? "anthropic-messages",
-    authHeader: overrides.authHeader ?? true,
+    // MiniMax Anthropic-compatible API-key auth expects x-api-key, not Bearer auth.
+    authHeader: overrides.authHeader ?? false,
     ...(overrides.headers ? { headers: overrides.headers } : {}),
     models: overrides.models?.length ? overrides.models : buildMinimaxCatalog(),
   };

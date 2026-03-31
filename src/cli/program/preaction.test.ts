@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { loggingState } from "../../logging/state.js";
+import { markPluginRootCommand } from "../../plugins/cli-command-marker.js";
 import { setCommandJsonMode } from "./json-mode.js";
 
 const setVerboseMock = vi.fn();
@@ -143,6 +144,9 @@ describe("registerPreActionHooks", () => {
     program.command("doctor").action(() => {});
     program.command("completion").action(() => {});
     program.command("secrets").action(() => {});
+    const voice = program.command("voice");
+    markPluginRootCommand(voice);
+    voice.command("doctor").action(() => {});
     program
       .command("agents")
       .command("list")
@@ -436,6 +440,15 @@ describe("registerPreActionHooks", () => {
     await runPreAction({
       parseArgv: ["backup", "create"],
       processArgv: ["node", "openclaw", "backup", "create", "--json"],
+    });
+
+    expect(ensureConfigReadyMock).not.toHaveBeenCalled();
+  });
+
+  it("bypasses config guard for plugin root commands", async () => {
+    await runPreAction({
+      parseArgv: ["voice", "doctor"],
+      processArgv: ["node", "openclaw", "voice", "doctor"],
     });
 
     expect(ensureConfigReadyMock).not.toHaveBeenCalled();

@@ -35,9 +35,15 @@ const shouldEagerRegisterSubcommands = (_argv: string[]) => {
 export const loadValidatedConfigForPluginRegistration =
   async (): Promise<OpenClawConfig | null> => {
     const mod = await import("../../config/config.js");
-    const snapshot = await mod.readConfigFileSnapshot();
-    if (!snapshot.valid) {
+    const snapshot = await mod.readConfigFileSnapshot().catch(() => null);
+    if (!snapshot) {
       return null;
+    }
+    if (!snapshot.valid) {
+      // Keep plugin top-level commands available even when the full config
+      // is invalid. We only need a best-effort config snapshot to decide
+      // which bundled plugin CLI registrars to load.
+      return snapshot.config;
     }
     return mod.loadConfig();
   };

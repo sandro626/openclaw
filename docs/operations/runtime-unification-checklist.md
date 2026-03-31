@@ -268,6 +268,7 @@ config-templates/openclaw.base.json
 - 当前仓库里的 MiniMax API-key 路线按 Anthropic-compatible 接口走
 - CN key 应对位 `https://api.minimaxi.com/anthropic`
 - Global key 应对位 `https://api.minimax.io/anthropic`
+- MiniMax API-key 路线的 `models.providers.minimax.authHeader` 应保持 `false`
 - 如果 `CN=200 / Global=401`，应判定为 endpoint 区域不匹配，不要先回退模型版本
 
 ## 附录：2026-03-28 Upstream 升级准备快照

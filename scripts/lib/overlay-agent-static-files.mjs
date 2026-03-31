@@ -1,5 +1,6 @@
 export const OVERLAY_AGENT_STATIC_FILES = new Set([
   "AGENTS.md",
+  "CLAUDE.md",
   "IDENTITY.md",
   "BOOTSTRAP.md",
   "TOOLS.md",

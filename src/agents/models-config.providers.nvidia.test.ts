@@ -56,7 +56,7 @@ describe("MiniMax implicit provider (#15275)", () => {
       const providers = await resolveImplicitProvidersForTest({ agentDir });
       expect(providers?.minimax).toBeDefined();
       expect(providers?.minimax?.api).toBe("anthropic-messages");
-      expect(providers?.minimax?.authHeader).toBe(true);
+      expect(providers?.minimax?.authHeader).toBe(false);
       expect(providers?.minimax?.baseUrl).toBe("https://api.minimax.io/anthropic");
     });
   });

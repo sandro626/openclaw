@@ -4,6 +4,7 @@ import { isTruthyEnvValue } from "../../infra/env.js";
 import { routeLogsToStderr } from "../../logging/console.js";
 import type { LogLevel } from "../../logging/levels.js";
 import { loggingState } from "../../logging/state.js";
+import { isPluginRootCommand } from "../../plugins/cli-command-marker.js";
 import { defaultRuntime } from "../../runtime.js";
 import { getCommandPathWithRootOptions, getVerboseFlag, hasHelpOrVersion } from "../argv.js";
 import { emitCliBanner } from "../banner.js";
@@ -41,10 +42,13 @@ const CONFIG_GUARD_BYPASS_COMMANDS = new Set(["backup", "doctor", "completion", 
 let configGuardModulePromise: Promise<typeof import("./config-guard.js")> | undefined;
 let pluginRegistryModulePromise: Promise<typeof import("../plugin-registry.js")> | undefined;
 
-function shouldBypassConfigGuard(commandPath: string[]): boolean {
+function shouldBypassConfigGuard(actionCommand: Command, commandPath: string[]): boolean {
   const [primary, secondary] = commandPath;
   if (!primary) {
     return false;
+  }
+  if (isPluginRootCommand(actionCommand)) {
+    return true;
   }
   if (CONFIG_GUARD_BYPASS_COMMANDS.has(primary)) {
     return true;
@@ -144,7 +148,7 @@ export function registerPreActionHooks(program: Command, programVersion: string)
     if (!verbose) {
       process.env.NODE_NO_WARNINGS ??= "1";
     }
-    if (shouldBypassConfigGuard(commandPath)) {
+    if (shouldBypassConfigGuard(actionCommand, commandPath)) {
       return;
     }
     const allowInvalid = shouldAllowInvalidConfigForAction(actionCommand, commandPath);

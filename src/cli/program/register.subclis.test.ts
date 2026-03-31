@@ -97,13 +97,14 @@ describe("registerSubCliCommands", () => {
     expect(registerAcpCli).not.toHaveBeenCalled();
   });
 
-  it("returns null for plugin registration when the config snapshot is invalid", async () => {
+  it("returns best-effort config for plugin registration when the config snapshot is invalid", async () => {
+    const bestEffortConfig = { plugins: { load: { paths: ["/tmp/evil"] } } };
     configModule.readConfigFileSnapshot.mockResolvedValueOnce({
       valid: false,
-      config: { plugins: { load: { paths: ["/tmp/evil"] } } },
+      config: bestEffortConfig,
     });
 
-    await expect(loadValidatedConfigForPluginRegistration()).resolves.toBeNull();
+    await expect(loadValidatedConfigForPluginRegistration()).resolves.toBe(bestEffortConfig);
     expect(configModule.loadConfig).not.toHaveBeenCalled();
   });
 

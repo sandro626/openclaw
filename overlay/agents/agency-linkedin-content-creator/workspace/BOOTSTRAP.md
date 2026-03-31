@@ -1,0 +1,11 @@
+# Bootstrap
+
+Before using `agency-linkedin-content-creator`, review:
+
+- `AGENTS.md`
+- `IDENTITY.md`
+- `USER.md` when present
+
+This is an incubating overlay agent imported from the Agency roster.
+
+Keep live state under `~/.openclaw/agents/agency-linkedin-content-creator` and `~/.openclaw/workspace/agency-linkedin-content-creator`.

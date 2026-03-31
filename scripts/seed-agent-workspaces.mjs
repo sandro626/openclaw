@@ -102,16 +102,16 @@ function renderTemplate(raw, agentId) {
   return raw.replaceAll("{{agentId}}", agentId);
 }
 
+function isSafeStaticEntry(entry) {
+  return (entry.isFile() || entry.isSymbolicLink()) && OVERLAY_AGENT_STATIC_FILES.has(entry.name);
+}
+
 async function listExistingSafeFileNames(rootDir) {
   if (!(await exists(rootDir))) {
     return new Set();
   }
   const entries = await fs.readdir(rootDir, { withFileTypes: true });
-  return new Set(
-    entries
-      .filter((entry) => entry.isFile() && OVERLAY_AGENT_STATIC_FILES.has(entry.name))
-      .map((entry) => entry.name),
-  );
+  return new Set(entries.filter((entry) => isSafeStaticEntry(entry)).map((entry) => entry.name));
 }
 
 async function copySafeFiles(params) {
@@ -120,7 +120,7 @@ async function copySafeFiles(params) {
   }
   const entries = await fs.readdir(params.sourceRoot, { withFileTypes: true });
   for (const entry of entries) {
-    if (!entry.isFile() || !OVERLAY_AGENT_STATIC_FILES.has(entry.name)) {
+    if (!isSafeStaticEntry(entry)) {
       continue;
     }
     const source = path.join(params.sourceRoot, entry.name);

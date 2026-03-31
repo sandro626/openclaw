@@ -11,6 +11,13 @@
       "agentId": "pc-ceo_assistant",
       "match": {
         "channel": "feishu",
+        "accountId": "ceo"
+      }
+    },
+    {
+      "agentId": "pc-ceo_assistant",
+      "match": {
+        "channel": "feishu",
         "accountId": "ceo_assistant"
       }
     },
@@ -19,6 +26,27 @@
       "match": {
         "channel": "feishu",
         "accountId": "code_reviewer"
+      }
+    },
+    {
+      "agentId": "cto",
+      "match": {
+        "channel": "feishu",
+        "accountId": "cto"
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "default"
+      }
+    },
+    {
+      "agentId": "dev",
+      "match": {
+        "channel": "feishu",
+        "accountId": "dev"
       }
     },
     {
@@ -64,7 +92,7 @@
       }
     },
     {
-      "agentId": "main",
+      "agentId": "ops",
       "match": {
         "channel": "feishu",
         "accountId": "yunxiao"

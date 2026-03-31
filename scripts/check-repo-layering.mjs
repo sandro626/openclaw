@@ -552,7 +552,7 @@ async function main() {
           );
           continue;
         }
-        if (!entry.isFile()) {
+        if (!entry.isFile() && !entry.isSymbolicLink()) {
           errors.push(
             `overlay agent workspace must only contain static markdown files, found "${relativeToRoot(path.join(workspaceRoot, entry.name))}"`,
           );

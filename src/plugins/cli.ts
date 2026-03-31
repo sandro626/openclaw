@@ -4,6 +4,7 @@ import type { OpenClawConfig } from "../config/config.js";
 import { loadConfig } from "../config/config.js";
 import { applyPluginAutoEnable } from "../config/plugin-auto-enable.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
+import { markPluginRootCommands } from "./cli-command-marker.js";
 import { loadOpenClawPlugins, type PluginLoadOptions } from "./loader.js";
 import type { OpenClawPluginCliCommandDescriptor } from "./types.js";
 import type { PluginLogger } from "./types.js";
@@ -87,6 +88,7 @@ export function registerPluginCliCommands(
       }
     }
     try {
+      const markRegisteredCommands = () => markPluginRootCommands(program, entry.commands);
       const result = entry.register({
         program,
         config,
@@ -94,9 +96,15 @@ export function registerPluginCliCommands(
         logger,
       });
       if (result && typeof result.then === "function") {
-        void result.catch((err) => {
-          log.warn(`plugin CLI register failed (${entry.pluginId}): ${String(err)}`);
-        });
+        void result
+          .then(() => {
+            markRegisteredCommands();
+          })
+          .catch((err) => {
+            log.warn(`plugin CLI register failed (${entry.pluginId}): ${String(err)}`);
+          });
+      } else {
+        markRegisteredCommands();
       }
       for (const command of entry.commands) {
         existingCommands.add(command);

@@ -6,6 +6,7 @@
 
 - agent workspace 静态骨架
 - `AGENTS.md`
+- `CLAUDE.md` -> `AGENTS.md` 软链
 - `IDENTITY.md`
 - `BOOTSTRAP.md`
 - `USER.md`
@@ -26,6 +27,6 @@
 
 当前仓库约束：
 
-- `overlay/agents/<id>/workspace/` 只保留白名单静态文件：`AGENTS.md`、`IDENTITY.md`、`BOOTSTRAP.md`、`TOOLS.md`、`USER.md`
+- `overlay/agents/<id>/workspace/` 只保留白名单静态文件：`AGENTS.md`、`CLAUDE.md`、`IDENTITY.md`、`BOOTSTRAP.md`、`TOOLS.md`、`USER.md`
 - `runtime-templates/agents/<id>/config.patch.json` 承载可模板化的 agent 默认配置
 - `pnpm check:repo-layering` 会阻止白名单之外的文件或目录重新回流到 `overlay/agents/<id>/workspace/`

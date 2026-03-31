@@ -108,6 +108,13 @@ MiniMax 经验规则：
 
 这样代码升级后，provider 解析才能继续指向正确 endpoint，而不是悄悄回退到错误默认值。
 
+其中 MiniMax API-key 的 Anthropic-compatible 路线应固定为：
+
+- `models.providers.minimax.api = "anthropic-messages"`
+- `models.providers.minimax.authHeader = false`
+
+否则请求会退化成 `Authorization: Bearer ...`，而不是 MiniMax Anthropic-compatible 接口接受的 `x-api-key`。
+
 ### 3. 更新 key 后必须重启网关
 
 如果 MiniMax key 来自 systemd drop-in 或 service env：

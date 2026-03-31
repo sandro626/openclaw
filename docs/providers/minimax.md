@@ -57,6 +57,7 @@ Configure via CLI:
         baseUrl: "https://api.minimaxi.com/anthropic",
         apiKey: "${MINIMAX_API_KEY}",
         api: "anthropic-messages",
+        authHeader: false,
         models: [
           {
             id: "MiniMax-M2.7",
@@ -120,6 +121,7 @@ Use the interactive config wizard to set MiniMax without editing JSON:
 - `models.providers.minimax.baseUrl`: prefer `https://api.minimaxi.com/anthropic` for CN keys; use `https://api.minimax.io/anthropic` for Global keys.
 - `models.providers.minimax.api`: use `anthropic-messages`.
 - `models.providers.minimax.apiKey`: MiniMax API key (`MINIMAX_API_KEY`).
+- `models.providers.minimax.authHeader`: keep `false` for the Anthropic-compatible API-key route so OpenClaw sends `x-api-key` instead of `Authorization: Bearer ...`.
 - `models.providers.minimax.models`: define `id`, `name`, `reasoning`, `contextWindow`, `maxTokens`, `cost`.
 - `agents.defaults.models`: alias models you want in the allowlist.
 - `models.mode`: keep `merge` if you want to add MiniMax alongside built-ins.
@@ -139,6 +141,7 @@ Use the interactive config wizard to set MiniMax without editing JSON:
 
 - The bundled OpenClaw MiniMax API-key flow currently uses the Anthropic-compatible API path.
 - For live config, keep `models.providers.minimax.api = "anthropic-messages"`.
+- For live config, keep `models.providers.minimax.authHeader = false` on the API-key route.
 - Match the endpoint to the key region:
   - CN key -> `https://api.minimaxi.com/anthropic`
   - Global key -> `https://api.minimax.io/anthropic`
@@ -157,7 +160,7 @@ and no MiniMax auth profile/env key found). A fix for this detection is in
 - Adding the `models.providers.minimax` block manually, or
 - Setting `MINIMAX_API_KEY` (or a MiniMax auth profile) so the provider can be injected.
 
-If MiniMax returns `401 invalid api key`, verify the endpoint matches the key region. CN keys typically work with `https://api.minimaxi.com/anthropic`; Global keys use `https://api.minimax.io/anthropic`.
+If MiniMax returns `401 invalid api key`, verify both the endpoint region and auth transport. CN keys typically work with `https://api.minimaxi.com/anthropic`; Global keys use `https://api.minimax.io/anthropic`. For the Anthropic-compatible API-key route, keep `authHeader: false` so requests use `x-api-key` instead of `Authorization: Bearer ...`.
 
 Make sure the model id is **case‑sensitive**:
 

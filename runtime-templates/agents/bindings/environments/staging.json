@@ -1,3 +1,25 @@
 {
-  "bindings": []
+  "bindings": [
+    {
+      "agentId": "pc-ceo_assistant",
+      "match": {
+        "channel": "feishu",
+        "accountId": "ceo_assistant"
+      }
+    },
+    {
+      "agentId": "pc-pm",
+      "match": {
+        "channel": "feishu",
+        "accountId": "pm"
+      }
+    },
+    {
+      "agentId": "ops",
+      "match": {
+        "channel": "feishu",
+        "accountId": "yunxiao"
+      }
+    }
+  ]
 }

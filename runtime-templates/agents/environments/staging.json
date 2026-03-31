@@ -6,6 +6,114 @@
         "default": true,
         "name": "Main Staging",
         "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/main"
+      },
+      {
+        "id": "ops",
+        "name": "元小运-运营专家",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/ops",
+        "skills": [
+          "analyze",
+          "build",
+          "claude-code-task",
+          "git",
+          "gitee-coder",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🔧"
+        }
+      },
+      {
+        "id": "pc-pm",
+        "name": "元小宝-管理平台产品经理",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/pc-pm",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "claude-code-task",
+          "feishu-doc",
+          "gitee-coder",
+          "imap-smtp-email",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "📋"
+        },
+        "subagents": {
+          "allowAgents": ["pc-backend", "pc-frontend", "pc-pctester"]
+        }
+      },
+      {
+        "id": "pc-ceo_assistant",
+        "name": "元小芯-管理平台CEO助手",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/pc-ceo_assistant",
+        "skills": [
+          "analyze",
+          "browser-use",
+          "claude-code-task",
+          "feishu-doc",
+          "gitee-coder",
+          "proactive-agent",
+          "self-improvement",
+          "feishu-doc-manager",
+          "aliyun-oss-upload",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "👔"
+        },
+        "subagents": {
+          "allowAgents": [
+            "pc-pm",
+            "pc-backend",
+            "pc-frontend",
+            "pc-pctester",
+            "pc-code_reviewer",
+            "pc-devops",
+            "pc-ip_expert"
+          ]
+        }
+      },
+      {
+        "id": "agency-tool-evaluator",
+        "name": "Agency-工具评估顾问",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/agency-tool-evaluator",
+        "skills": [
+          "analyze",
+          "claude-code-task",
+          "feishu-doc-manager",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "🧰"
+        }
+      },
+      {
+        "id": "agency-workflow-optimizer",
+        "name": "Agency-流程优化顾问",
+        "workspace": "${OPENCLAW_WORKSPACE_ROOT:-~/.openclaw/workspace-staging}/agency-workflow-optimizer",
+        "skills": [
+          "analyze",
+          "claude-code-task",
+          "feishu-doc-manager",
+          "tavily-search",
+          "troubleshoot"
+        ],
+        "identity": {
+          "emoji": "⚙️"
+        }
       }
     ]
   }

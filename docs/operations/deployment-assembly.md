@@ -124,6 +124,7 @@ pnpm ops:assemble -- --output-root .artifacts/ops/prod --environment prod
 - 当前 live 规则应固定为：
   - CN key -> `https://api.minimaxi.com/anthropic`
   - Global key -> `https://api.minimax.io/anthropic`
+- MiniMax API-key 走 Anthropic-compatible 接口时，`models.providers.minimax.authHeader` 应固定为 `false`
 - 不要把 `401 invalid api key` 直接判断成“key 一定错了”；先核对 endpoint 和 key 区域是否匹配
 
 入口脚本：
