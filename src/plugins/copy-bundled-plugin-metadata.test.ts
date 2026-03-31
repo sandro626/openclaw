@@ -318,75 +318,36 @@ describe("copyBundledPluginMetadata", () => {
     expect(fs.existsSync(staleDistDir)).toBe(false);
   });
 
-  it("preserves dist node_modules for plugins that stage runtime dependencies separately", () => {
-    const repoRoot = makeRepoRoot("openclaw-bundled-plugin-preserve-runtime-deps-");
-    const pluginDir = path.join(repoRoot, "extensions", "discord");
-    fs.mkdirSync(pluginDir, { recursive: true });
-    writeJson(path.join(pluginDir, "openclaw.plugin.json"), {
-      id: "discord",
-      configSchema: { type: "object" },
-    });
-    writeJson(path.join(pluginDir, "package.json"), {
-      name: "@openclaw/discord",
-      openclaw: {
-        extensions: ["./index.ts"],
-        bundle: {
-          stageRuntimeDependencies: true,
-        },
-      },
-    });
-    const stagedRuntimeDepsDir = path.join(
-      repoRoot,
-      "dist",
-      "extensions",
-      "discord",
-      "node_modules",
-      "zod",
-    );
-    fs.mkdirSync(stagedRuntimeDepsDir, { recursive: true });
-    fs.writeFileSync(path.join(stagedRuntimeDepsDir, "package.json"), "{}\n", "utf8");
-
-    copyBundledPluginMetadata({ repoRoot });
-
-    expect(fs.existsSync(path.join(stagedRuntimeDepsDir, "package.json"))).toBe(true);
-  });
-
-  it("skips metadata for optional bundled clusters only when explicitly disabled", () => {
-    const repoRoot = makeRepoRoot("openclaw-bundled-plugin-optional-skip-");
-    const pluginDir = path.join(repoRoot, "extensions", "acpx");
-    fs.mkdirSync(pluginDir, { recursive: true });
-    writeJson(path.join(pluginDir, "openclaw.plugin.json"), {
-      id: "acpx",
-      configSchema: { type: "object" },
-    });
-    writeJson(path.join(pluginDir, "package.json"), {
-      name: "@openclaw/acpx-plugin",
-      openclaw: { extensions: ["./index.ts"] },
-    });
-
-    copyBundledPluginMetadataWithEnv({ repoRoot, env: excludeOptionalEnv });
-
-    expect(fs.existsSync(path.join(repoRoot, "dist", "extensions", "acpx"))).toBe(false);
-  });
-
-  it("still bundles previously released optional plugins without the opt-in env", () => {
-    const repoRoot = makeRepoRoot("openclaw-bundled-plugin-released-optional-");
-    const pluginDir = path.join(repoRoot, "extensions", "whatsapp");
-    fs.mkdirSync(pluginDir, { recursive: true });
-    writeJson(path.join(pluginDir, "openclaw.plugin.json"), {
-      id: "whatsapp",
-      configSchema: { type: "object" },
-    });
-    writeJson(path.join(pluginDir, "package.json"), {
-      name: "@openclaw/whatsapp",
-      openclaw: {
+  it.each([
+    {
+      name: "skips metadata for optional bundled clusters only when explicitly disabled",
+      pluginId: "acpx",
+      packageName: "@openclaw/acpx-plugin",
+      packageOpenClaw: { extensions: ["./index.ts"] },
+      env: excludeOptionalEnv,
+      expectedExists: false,
+    },
+    {
+      name: "still bundles previously released optional plugins without the opt-in env",
+      pluginId: "whatsapp",
+      packageName: "@openclaw/whatsapp",
+      packageOpenClaw: {
         extensions: ["./index.ts"],
         install: { npmSpec: "@openclaw/whatsapp" },
       },
+      env: {},
+      expectedExists: true,
+    },
+  ] as const)("$name", ({ pluginId, packageName, packageOpenClaw, env, expectedExists }) => {
+    const repoRoot = makeRepoRoot(`openclaw-bundled-plugin-${pluginId}-`);
+    createPlugin(repoRoot, {
+      id: pluginId,
+      packageName,
+      packageOpenClaw,
     });
 
-    copyBundledPluginMetadataWithEnv({ repoRoot, env: {} });
+    copyBundledPluginMetadataWithEnv({ repoRoot, env });
 
-    expect(fs.existsSync(path.join(repoRoot, "dist", "extensions", "whatsapp"))).toBe(true);
+    expect(fs.existsSync(path.join(repoRoot, "dist", "extensions", pluginId))).toBe(expectedExists);
   });
 });

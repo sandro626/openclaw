@@ -1,28 +1,10 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const WINDOWS_UNSAFE_CMD_CHARS_RE = /[&|<>^%\r\n]/;
-const RUNTIME_DEPS_STAMP_FILE = ".openclaw-runtime-deps.json";
-const RUNTIME_DEPS_STAMP_VERSION = 1;
-const RUNTIME_DEPS_CACHE_DIR = path.join(
-  "node_modules",
-  ".cache",
-  "openclaw",
-  "bundled-plugin-runtime-deps",
-);
-const DEFAULT_NPM_INSTALL_ARGS = [
-  "install",
-  "--omit=dev",
-  "--silent",
-  "--no-audit",
-  "--no-fund",
-  "--ignore-scripts",
-  "--legacy-peer-deps",
-  "--package-lock=false",
-  "--prefer-offline",
-];
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -38,11 +20,6 @@ function removePathIfExists(targetPath) {
 
 function makeTempDir(parentDir, prefix) {
   return fs.mkdtempSync(path.join(parentDir, prefix));
-}
-
-function copyPath(sourcePath, targetPath) {
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.cpSync(sourcePath, targetPath, { recursive: true });
 }
 
 function listBundledPluginRuntimeDirs(repoRoot) {
@@ -67,48 +44,6 @@ function hasRuntimeDeps(packageJson) {
 
 function shouldStageRuntimeDeps(packageJson) {
   return packageJson.openclaw?.bundle?.stageRuntimeDependencies === true;
-}
-
-function buildRuntimeDepsStamp(packageJson) {
-  return JSON.stringify({
-    version: RUNTIME_DEPS_STAMP_VERSION,
-    name: packageJson.name ?? null,
-    packageVersion: packageJson.version ?? null,
-    dependencies: packageJson.dependencies ?? {},
-    optionalDependencies: packageJson.optionalDependencies ?? {},
-    peerDependencies: packageJson.peerDependencies ?? {},
-    peerDependenciesMeta: packageJson.peerDependenciesMeta ?? {},
-    overrides: packageJson.overrides ?? {},
-    os: packageJson.os ?? [],
-    cpu: packageJson.cpu ?? [],
-    installArgs: DEFAULT_NPM_INSTALL_ARGS,
-  });
-}
-
-function readRuntimeDepsStamp(filePath) {
-  try {
-    const payload = readJson(filePath);
-    if (typeof payload?.stamp === "string") {
-      return payload.stamp;
-    }
-
-    // Accept the transient upstream stamp format while converging on the
-    // cache-aware overlay versioned stamp.
-    return typeof payload?.fingerprint === "string" ? payload.fingerprint : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRuntimeDepsStamp(filePath, stamp) {
-  writeJson(filePath, {
-    version: RUNTIME_DEPS_STAMP_VERSION,
-    stamp,
-  });
-}
-
-function resolveRuntimeDepsCacheDir(repoRoot, pluginId) {
-  return path.join(repoRoot, RUNTIME_DEPS_CACHE_DIR, pluginId);
 }
 
 function sanitizeBundledManifestForRuntimeInstall(pluginDir) {
@@ -154,6 +89,25 @@ function sanitizeBundledManifestForRuntimeInstall(pluginDir) {
   }
 
   return packageJson;
+}
+
+function resolveRuntimeDepsStampPath(pluginDir) {
+  return path.join(pluginDir, ".openclaw-runtime-deps-stamp.json");
+}
+
+function createRuntimeDepsFingerprint(packageJson) {
+  return createHash("sha256").update(JSON.stringify(packageJson)).digest("hex");
+}
+
+function readRuntimeDepsStamp(stampPath) {
+  if (!fs.existsSync(stampPath)) {
+    return null;
+  }
+  try {
+    return readJson(stampPath);
+  } catch {
+    return null;
+  }
 }
 
 export function resolveNpmRunner(params = {}) {
@@ -262,41 +216,31 @@ function buildCmdExeCommandLine(command, args) {
   return [escapeForCmdExe(command), ...args.map(escapeForCmdExe)].join(" ");
 }
 
-function runPluginRuntimeDepsInstall(pluginDir, params = {}) {
-  const npmRunner = resolveNpmRunner({
-    env: params.env,
-    execPath: params.execPath,
-    existsSync: params.existsSync,
-    npmArgs: params.npmArgs ?? DEFAULT_NPM_INSTALL_ARGS,
-  });
-  const spawnSyncImpl = params.spawnSync ?? spawnSync;
-  return spawnSyncImpl(npmRunner.command, npmRunner.args, {
-    cwd: pluginDir,
-    encoding: "utf8",
-    env: npmRunner.env,
-    stdio: "pipe",
-    shell: npmRunner.shell,
-    windowsVerbatimArguments: npmRunner.windowsVerbatimArguments,
-  });
-}
-
 function installPluginRuntimeDeps(params) {
-  const { packageJson, pluginDir, pluginId } = params;
+  const { fingerprint, packageJson, pluginDir, pluginId } = params;
   const nodeModulesDir = path.join(pluginDir, "node_modules");
+  const stampPath = resolveRuntimeDepsStampPath(pluginDir);
   const tempInstallDir = makeTempDir(pluginDir, ".runtime-deps-");
-
+  const npmRunner = resolveNpmRunner({
+    npmArgs: [
+      "install",
+      "--omit=dev",
+      "--silent",
+      "--ignore-scripts",
+      "--legacy-peer-deps",
+      "--package-lock=false",
+    ],
+  });
   try {
     writeJson(path.join(tempInstallDir, "package.json"), packageJson);
-    let result = runPluginRuntimeDepsInstall(tempInstallDir, params);
-    if (result.status !== 0) {
-      const fallbackInstallArgs = DEFAULT_NPM_INSTALL_ARGS.filter(
-        (arg) => arg !== "--prefer-offline",
-      );
-      result = runPluginRuntimeDepsInstall(tempInstallDir, {
-        ...params,
-        npmArgs: fallbackInstallArgs,
-      });
-    }
+    const result = spawnSync(npmRunner.command, npmRunner.args, {
+      cwd: tempInstallDir,
+      encoding: "utf8",
+      env: npmRunner.env,
+      stdio: "pipe",
+      shell: npmRunner.shell,
+      windowsVerbatimArguments: npmRunner.windowsVerbatimArguments,
+    });
     if (result.status !== 0) {
       const output = [result.stderr, result.stdout].filter(Boolean).join("\n").trim();
       throw new Error(
@@ -313,70 +257,62 @@ function installPluginRuntimeDeps(params) {
 
     removePathIfExists(nodeModulesDir);
     fs.renameSync(stagedNodeModulesDir, nodeModulesDir);
+    writeJson(stampPath, {
+      fingerprint,
+      generatedAt: new Date().toISOString(),
+    });
   } finally {
     removePathIfExists(tempInstallDir);
   }
 }
 
+function installPluginRuntimeDepsWithRetries(params) {
+  const { attempts = 3 } = params;
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      params.install({ ...params.installParams, attempt });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) {
+        break;
+      }
+    }
+  }
+  throw lastError;
+}
+
 export function stageBundledPluginRuntimeDeps(params = {}) {
   const repoRoot = params.cwd ?? params.repoRoot ?? process.cwd();
-  const logger =
-    typeof params.logger === "function" ? params.logger : (message) => console.error(message);
   const installPluginRuntimeDepsImpl =
     params.installPluginRuntimeDepsImpl ?? installPluginRuntimeDeps;
-
+  const installAttempts = params.installAttempts ?? 3;
   for (const pluginDir of listBundledPluginRuntimeDirs(repoRoot)) {
     const pluginId = path.basename(pluginDir);
+    const packageJson = sanitizeBundledManifestForRuntimeInstall(pluginDir);
     const nodeModulesDir = path.join(pluginDir, "node_modules");
-    const stampPath = path.join(pluginDir, RUNTIME_DEPS_STAMP_FILE);
-    const cacheDir = resolveRuntimeDepsCacheDir(repoRoot, pluginId);
-    const cacheNodeModulesDir = path.join(cacheDir, "node_modules");
-    const cacheStampPath = path.join(cacheDir, RUNTIME_DEPS_STAMP_FILE);
-    const packageJson = readJson(path.join(pluginDir, "package.json"));
-
+    const stampPath = resolveRuntimeDepsStampPath(pluginDir);
     if (!hasRuntimeDeps(packageJson) || !shouldStageRuntimeDeps(packageJson)) {
-      removePathIfExists(cacheDir);
-      removePathIfExists(stampPath);
-      removePathIfExists(nodeModulesDir);
-      continue;
-    }
-
-    const sanitizedPackageJson = sanitizeBundledManifestForRuntimeInstall(pluginDir);
-    const expectedStamp = buildRuntimeDepsStamp(sanitizedPackageJson);
-    if (fs.existsSync(nodeModulesDir) && readRuntimeDepsStamp(stampPath) === expectedStamp) {
-      logger(`[runtime-postbuild] reusing bundled runtime deps for ${pluginId}`);
-      continue;
-    }
-
-    if (
-      fs.existsSync(cacheNodeModulesDir) &&
-      readRuntimeDepsStamp(cacheStampPath) === expectedStamp
-    ) {
       removePathIfExists(nodeModulesDir);
       removePathIfExists(stampPath);
-      copyPath(cacheNodeModulesDir, nodeModulesDir);
-      writeRuntimeDepsStamp(stampPath, expectedStamp);
-      logger(`[runtime-postbuild] restored bundled runtime deps for ${pluginId} from cache`);
       continue;
     }
-
-    removePathIfExists(nodeModulesDir);
-    removePathIfExists(stampPath);
-    logger(`[runtime-postbuild] staging bundled runtime deps for ${pluginId}`);
-    const startedAt = Date.now();
-    installPluginRuntimeDepsImpl({
-      ...params,
-      packageJson: sanitizedPackageJson,
-      pluginDir,
-      pluginId,
+    const fingerprint = createRuntimeDepsFingerprint(packageJson);
+    const stamp = readRuntimeDepsStamp(stampPath);
+    if (fs.existsSync(nodeModulesDir) && stamp?.fingerprint === fingerprint) {
+      continue;
+    }
+    installPluginRuntimeDepsWithRetries({
+      attempts: installAttempts,
+      install: installPluginRuntimeDepsImpl,
+      installParams: {
+        fingerprint,
+        packageJson,
+        pluginDir,
+        pluginId,
+      },
     });
-    writeRuntimeDepsStamp(stampPath, expectedStamp);
-    removePathIfExists(cacheDir);
-    copyPath(nodeModulesDir, cacheNodeModulesDir);
-    writeRuntimeDepsStamp(cacheStampPath, expectedStamp);
-    logger(
-      `[runtime-postbuild] staged bundled runtime deps for ${pluginId} in ${Date.now() - startedAt}ms`,
-    );
   }
 }
 
